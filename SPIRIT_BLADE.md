@@ -154,7 +154,7 @@ Future upgrade path: upload real R15 `Animation` assets to Roblox and load via `
 
 ---
 
-## 8. Current state (as of 2026-09-07)
+## 8. Current state (as of 2026-09-07, tip `1125b14`)
 
 ### Working
 - Rojo sync project; Spirit Blade bootstrap
