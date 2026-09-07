@@ -72,6 +72,33 @@ local function lookCFrame(root: BasePart): CFrame
 	return CFrame.lookAt(root.Position, root.Position + look)
 end
 
+
+local function flatLookFromRoot(root: BasePart): Vector3
+	local look = root.CFrame.LookVector
+	local flat = Vector3.new(look.X, 0, look.Z)
+	if flat.Magnitude < 0.05 then
+		return Vector3.new(0, 0, -1)
+	end
+	return flat.Unit
+end
+
+-- Prefer SpiritBlade Blade world position; else root look box in front.
+local function meleeHitboxCFrame(character: Model, root: BasePart): CFrame
+	local flat = flatLookFromRoot(root)
+	local katana = character:FindFirstChild("SpiritBlade")
+	if katana and katana:IsA("Model") then
+		local blade = katana:FindFirstChild("Blade")
+		if blade and blade:IsA("BasePart") and blade.Transparency < 1 then
+			local center = blade.Position + flat * (Config.MeleeHitboxSize.Z * 0.25)
+			return CFrame.lookAt(center, center + flat)
+		end
+	end
+	local origin = root.Position + Vector3.new(0, 0.5, 0)
+	local center = origin + flat * (Config.MeleeHitboxSize.Z * 0.5 + 1)
+	return CFrame.lookAt(center, center + flat)
+end
+
+
 local function deny(player: Player, reason: string?)
 	Remotes.get("CombatFX"):FireClient(player, {
 		kind = CombatTypes.Fx.Deny,
@@ -113,7 +140,7 @@ function CombatService.handleMelee(player: Player)
 
 	local damage = Config.MeleeDamage[s.index] or Config.MeleeDamage[1]
 	local cf = lookCFrame(root)
-	local hitCenter = cf.Position + cf.LookVector * (Config.MeleeHitboxSize.Z * 0.5 + 1)
+	local hitCF = meleeHitboxCFrame(character, root)
 
 	-- Soft lunge so swing animation reads (not a teleport-slide)
 	root.AssemblyLinearVelocity = Vector3.new(
@@ -122,16 +149,16 @@ function CombatService.handleMelee(player: Player)
 		cf.LookVector.Z * Config.MeleeLungeSpeed
 	)
 
-	-- FX first so clients start the arm/sword swing immediately
+	-- FX for other clients (local swing starts on input via SwingController)
 	Remotes.get("CombatFX"):FireAllClients({
 		kind = CombatTypes.Fx.Slash,
-		position = hitCenter,
-		cframe = cf + cf.LookVector * 3,
+		position = hitCF.Position,
+		cframe = hitCF,
 		combo = s.index,
 		userId = player.UserId,
 	})
 
-	local hitDelay = Config.MeleeHitDelay or 0.12
+	local hitDelay = Config.MeleeHitDelay or 0.1
 	task.delay(hitDelay, function()
 		if not character.Parent then
 			return
@@ -144,21 +171,20 @@ function CombatService.handleMelee(player: Player)
 		if not rootNow then
 			return
 		end
-		local cfNow = lookCFrame(rootNow)
-		local center = cfNow.Position + cfNow.LookVector * (Config.MeleeHitboxSize.Z * 0.5 + 1)
+
+		local boxCF = meleeHitboxCFrame(character, rootNow)
 
 		local overlap = OverlapParams.new()
 		overlap.FilterType = Enum.RaycastFilterType.Exclude
 		overlap.FilterDescendantsInstances = { character }
 
-		local parts = workspace:GetPartBoundsInBox(
-			CFrame.new(center) * (cfNow - cfNow.Position),
-			Config.MeleeHitboxSize,
-			overlap
-		)
+		-- Large forgiving box; also a sphere around the same center for near-misses
+		local parts = workspace:GetPartBoundsInBox(boxCF, Config.MeleeHitboxSize, overlap)
+		local radius = math.max(Config.MeleeHitboxSize.X, Config.MeleeHitboxSize.Z) * 0.45
+		local sphereParts = workspace:GetPartBoundsInRadius(boxCF.Position, radius, overlap)
 
 		local hitModels: { [Model]: boolean } = {}
-		for _, part in parts do
+		local function consider(part: BasePart)
 			local model = part:FindFirstAncestorOfClass("Model")
 			if model and not hitModels[model] then
 				local hum = model:FindFirstChildOfClass("Humanoid")
@@ -167,6 +193,12 @@ function CombatService.handleMelee(player: Player)
 					DamageService.apply(player, hum, damage, "Melee")
 				end
 			end
+		end
+		for _, part in parts do
+			consider(part)
+		end
+		for _, part in sphereParts do
+			consider(part)
 		end
 	end)
 end

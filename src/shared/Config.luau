@@ -5,15 +5,15 @@ local Config = {
 	GameName = "Spirit Blade",
 
 	-- Melee (M1) — basic drawn-blade sword attack, 3-hit combo
-	MeleeRange = 8,
-	MeleeHitboxSize = Vector3.new(6, 5, 8),
+	MeleeRange = 10,
+	MeleeHitboxSize = Vector3.new(8, 6, 10),
 	MeleeCooldown = 0.32,
 	MeleeComboMax = 3,
 	MeleeDamage = { 10, 14, 22 },
 	MeleeComboReset = 0.9,
 	MeleeLungeSpeed = 12, -- soft nudge; swing anim carries the feel
 	MeleeLungeDuration = 0.08,
-	MeleeHitDelay = 0.12, -- hitbox fires mid-swing (~0.1–0.2s)
+	MeleeHitDelay = 0.1, -- mid-swing (~synced with Transform strike)
 
 	-- Flash Step (hotbar 1) — short controlled dash
 	FlashStepDistance = 11,

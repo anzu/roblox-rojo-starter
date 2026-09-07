@@ -4,7 +4,8 @@ Bleach-inspired anime combat sandbox for Roblox — spirit reapers vs Voidspawn.
 
 **Game name:** Spirit Blade  
 **Sword:** Metal katana + dark saya (scabbard) — saya stays on your back; **E** draws/sheaths the blade into the right hand  
-**Melee:** Sword Attack (M1) — auto-unsheaths; visible arm swing + mid-swing hitbox  
+**Melee:** Sword Attack (M1) — auto-unsheaths; **Motor6D.Transform** arm+blade swing (Animator-safe) + mid-swing hitbox  
+**Camera:** **Shift** toggles mouse-lock combat aim  
 **Abilities (hotbar):** 1 Flash Step, 2 Spirit Wave, 3–9 locked  
 **Meter:** Spirit Power (regenerates; spent on Flash Step / Spirit Wave)
 
@@ -26,29 +27,31 @@ Output should show:
 - `[Spirit Blade] Server combat systems online.`
 - `[SwordService] Equipped metal katana + saya on <name> (... sheathed)`
 - `[SwordService] Motor6D debug | ...` (once)
-- `[Spirit Blade] Client ready. E sheath · M1 sword · hotbar 1/2 abilities`
+- `[Spirit Blade] Client ready. E sheath · M1 sword · Shift lock · hotbar 1/2`
 
 ## Controls
 
 | Input | Action |
 |-------|--------|
 | **E** | Toggle sheath / unsheath katana (saya stays on back) |
-| **Mouse1** / tap | Sword Attack — auto-unsheaths; 3-hit combo with arm swing |
+| **Mouse1** / tap | Sword Attack — auto-unsheaths; 3-hit combo with visible Transform swing |
+| **Shift** | Toggle mouse-lock (LockCenter + face camera look) |
 | **1** / hotbar slot 1 | Flash Step — short ~11-stud dash (MoveDirection-aimed) |
 | **2** / hotbar slot 2 | Spirit Wave — ranged projectile |
 | **3–9** | Locked hotbar slots (no-op for now) |
 
-Mobile: on-screen **E Sheath** button; tap hotbar slots for abilities; tap world to sword-attack.
+Mobile: on-screen **E Sheath** button; tap hotbar slots for abilities; tap world to sword-attack. Shift lock is desktop-only.
 
 ## What you should see in Play
 
 1. A **dark saya on your back** at spawn (diagonal, not piercing the chest). Sheathed blade handle sticks out the top; steel blade is hidden inside the saya. **E** draws a **normal metal katana** (silver blade, dark ito wrap, tsuba) into your right hand — **no neon / lightsaber glow**.
-2. **M1** plays a visible **RightShoulder swing** (horizontal / diagonal / overhead by combo) and hits ~0.12s into the swing.
-3. Ability **hotbar** (9 slots) above the Spirit Power bar — slots 1–2 filled, 3–9 empty.
-4. **Voidspawn** spawn farther out (~70 studs) after a short delay; they ignore you for ~6s after spawn/respawn and only aggro inside ~22 studs (deaggro ~35).
-5. Soft slash trails, flash-step trails, Spirit Wave parts.
-6. PvP friendly fire on (sandbox).
-7. Voidspawn respawn ~8s after death.
+2. **M1** immediately plays a visible **RightShoulder + blade Transform swing** (horizontal / diagonal / overhead by combo) with a subtle blade trail — **no floating transparent slash part**. Hits ~0.1s mid-swing; forgiving ~8×6×10 hitbox (prefers blade position).
+3. **Shift** locks the mouse to center and rotates you toward camera look for easier aiming.
+4. Ability **hotbar** (9 slots) above the Spirit Power bar — slots 1–2 filled, 3–9 empty.
+5. **Voidspawn** spawn farther out (~70 studs) after a short delay; they ignore you for ~6s after spawn/respawn and only aggro inside ~22 studs (deaggro ~35).
+6. Flash-step trails, Spirit Wave parts, hit sparks.
+7. PvP friendly fire on (sandbox).
+8. Voidspawn respawn ~8s after death.
 
 ## Mac setup (once)
 
@@ -67,13 +70,15 @@ Mobile: on-screen **E Sheath** button; tap hotbar slots for abilities; tap world
 
 ### Key modules
 
-- `shared/Config.luau` — tunables (Flash Step distance, Voidspawn aggro/grace, melee hit delay)
+- `shared/Config.luau` — tunables (melee hitbox/delay, Flash Step, Voidspawn)
 - `shared/Remotes.luau` — `ReplicatedStorage.CombatRemotes`
 - `server/SwordService.luau` — metal katana + back saya (Motor6D sheath)
-- `server/CombatService.luau` — sword melee, flash step, spirit wave
+- `server/CombatService.luau` — sword melee (blade-biased hitbox), flash step, spirit wave
 - `server/VoidspawnService.luau` — PvE + aggro radii + player grace
 - `client/AbilityHotbar.luau` — 1–9 hotbar UI
-- `client/CombatVFX.luau` — slash FX + RightShoulder swing tween
+- `client/SwingController.luau` — Motor6D.Transform windup→strike→recover on Stepped
+- `client/CombatVFX.luau` — remote Slash → other players' swings; flash/hit FX
+- `client/ShiftLock.luau` — LeftShift mouse-lock combat camera
 - `client/InputController.luau` / `SpiritUI.luau`
 
 Tune numbers in **one place**: `src/shared/Config.luau`.

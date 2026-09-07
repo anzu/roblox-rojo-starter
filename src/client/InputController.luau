@@ -1,20 +1,41 @@
 -- Combat input: M1 = sword attack (auto-unsheath), E = sheath toggle.
--- Abilities 1–9 are handled by AbilityHotbar (keys + clicks).
+-- Local swing starts immediately; server remains authoritative for damage.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
+local SwingController = require(script.Parent.SwingController)
+
 local InputController = {}
+
+local localCombo = 0
+local lastLocalSwing = 0
 
 local function isTyping(): boolean
 	return UserInputService:GetFocusedTextBox() ~= nil
 end
 
 local function requestMelee()
+	local t = os.clock()
+	if t - lastLocalSwing > Config.MeleeComboReset then
+		localCombo = 0
+	end
+
+	-- Immediate local swing for responsiveness (server still owns damage/cooldown)
+	if t - lastLocalSwing >= Config.MeleeCooldown * 0.5 then
+		localCombo = (localCombo % Config.MeleeComboMax) + 1
+		lastLocalSwing = t
+		local character = Players.LocalPlayer.Character
+		if character then
+			SwingController.play(character, localCombo)
+		end
+	end
+
 	Remotes.get("RequestMelee"):FireServer()
 end
 
@@ -23,7 +44,6 @@ local function requestToggleSheath()
 end
 
 function InputController.start()
-	-- Mobile sheath button (abilities use hotbar / CAS titles elsewhere)
 	ContextActionService:BindAction("ToggleSheath", function(_, inputState)
 		if inputState == Enum.UserInputState.Begin then
 			requestToggleSheath()
@@ -39,7 +59,6 @@ function InputController.start()
 			return
 		end
 
-		-- E sheath ignores gameProcessed (still skips text boxes)
 		if input.KeyCode == Enum.KeyCode.E then
 			requestToggleSheath()
 			return
@@ -60,8 +79,6 @@ function InputController.start()
 		end
 		requestMelee()
 	end)
-
-	local _ = Players.LocalPlayer
 end
 
 return InputController
