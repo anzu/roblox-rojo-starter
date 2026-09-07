@@ -17,8 +17,8 @@
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "$properties": {
-        "EnableMouseLockOption": true,
-        "DevEnableMouseLock": true
+        "EnableMouseLockOption": false,
+        "DevEnableMouseLock": false
       },
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",

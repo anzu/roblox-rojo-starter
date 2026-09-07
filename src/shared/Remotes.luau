@@ -10,6 +10,7 @@ local REMOTE_NAMES = {
 	"RequestFlashStep",
 	"RequestSpiritWave",
 	"RequestToggleSheath",
+	"RequestGuard",
 	"CombatFX",
 	"SpiritPowerChanged",
 }

@@ -81,7 +81,7 @@ function SpiritUI.start()
 	hints.Name = "Controls"
 	hints.AnchorPoint = Vector2.new(0, 0)
 	hints.Position = UDim2.fromOffset(16, 40)
-	hints.Size = UDim2.fromOffset(400, 90)
+	hints.Size = UDim2.fromOffset(420, 120)
 	hints.BackgroundTransparency = 1
 	hints.Font = Enum.Font.Gotham
 	hints.TextSize = 14
@@ -89,7 +89,12 @@ function SpiritUI.start()
 	hints.TextYAlignment = Enum.TextYAlignment.Top
 	hints.TextColor3 = Color3.fromRGB(210, 220, 235)
 	hints.TextStrokeTransparency = 0.55
-	hints.Text = "E — Draw / sheath katana (saya on back)\nM1 — Sword Attack (swing + auto-draw)\nShift — Lock camera\nHotbar 1 — Flash Step · 2 — Spirit Wave"
+	hints.Text =
+		"E — Draw / sheath katana (saya on back)\n"
+		.. "M1 — Sword Attack (3-hit Zanjutsu combo)\n"
+		.. "Shift — Sprint · Ctrl — Camera lock\n"
+		.. "F / Hotbar 3 — Spirit Guard (hold)\n"
+		.. "Hotbar 1 — Flash Step · 2 — Spirit Wave"
 	hints.Parent = gui
 
 	local denyLabel = Instance.new("TextLabel")

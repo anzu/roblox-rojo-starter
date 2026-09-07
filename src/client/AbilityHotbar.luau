@@ -1,4 +1,4 @@
--- Spirit ability hotbar: 9 slots. 1 = Flash Step, 2 = Spirit Wave, 3–9 locked.
+-- Spirit ability hotbar: 9 slots. 1 = Flash Step, 2 = Spirit Wave, 3 = Spirit Guard, 4–9 locked.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -6,11 +6,14 @@ local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
+local InputController = require(script.Parent.InputController)
+
 local AbilityHotbar = {}
 
 local SLOT_DEFS = {
 	[1] = { id = "FlashStep", label = "Flash\nStep", color = Color3.fromRGB(120, 190, 255) },
 	[2] = { id = "SpiritWave", label = "Spirit\nWave", color = Color3.fromRGB(100, 160, 255) },
+	[3] = { id = "SpiritGuard", label = "Spirit\nGuard", color = Color3.fromRGB(160, 200, 140), hold = true },
 }
 
 local KEYCODES = {
@@ -25,19 +28,44 @@ local KEYCODES = {
 	Enum.KeyCode.Nine,
 }
 
+local guardHotbarHeld = false
+local slots: { TextButton } = {}
+
 local function isTyping(): boolean
 	return UserInputService:GetFocusedTextBox() ~= nil
 end
 
-local function activateSlot(index: number)
+local function setGuardVisual(on: boolean)
+	local slot = slots[3]
+	if not slot then
+		return
+	end
+	if on then
+		slot.BackgroundColor3 = Color3.fromRGB(60, 100, 70)
+	else
+		slot.BackgroundColor3 = Color3.fromRGB(28, 42, 70)
+	end
+end
+
+local function activateSlot(index: number, pressed: boolean)
 	local def = SLOT_DEFS[index]
 	if not def then
-		return -- locked / empty
+		return
 	end
 	if def.id == "FlashStep" then
-		Remotes.get("RequestFlashStep"):FireServer()
+		if pressed then
+			InputController.tryCancelSwingForFlashStep()
+			Remotes.get("RequestFlashStep"):FireServer()
+		end
 	elseif def.id == "SpiritWave" then
-		Remotes.get("RequestSpiritWave"):FireServer()
+		if pressed then
+			Remotes.get("RequestSpiritWave"):FireServer()
+		end
+	elseif def.id == "SpiritGuard" then
+		-- Hold semantics for key/hotbar 3 (same as F)
+		guardHotbarHeld = pressed
+		InputController.setGuardFromHotbar(pressed)
+		setGuardVisual(pressed)
 	end
 end
 
@@ -85,8 +113,6 @@ function AbilityHotbar.start()
 	pad.PaddingRight = UDim.new(0, 8)
 	pad.Parent = bar
 
-	local slots: { TextButton } = {}
-
 	for i = 1, 9 do
 		local def = SLOT_DEFS[i]
 		local slot = Instance.new("TextButton")
@@ -133,9 +159,23 @@ function AbilityHotbar.start()
 			keyBadge.TextColor3 = def.color
 			nameLabel.TextColor3 = Color3.fromRGB(230, 240, 255)
 			nameLabel.Text = def.label
-			slot.MouseButton1Click:Connect(function()
-				activateSlot(i)
-			end)
+			if def.hold then
+				slot.MouseButton1Down:Connect(function()
+					activateSlot(i, true)
+				end)
+				slot.MouseButton1Up:Connect(function()
+					activateSlot(i, false)
+				end)
+				slot.MouseLeave:Connect(function()
+					if guardHotbarHeld then
+						activateSlot(i, false)
+					end
+				end)
+			else
+				slot.MouseButton1Click:Connect(function()
+					activateSlot(i, true)
+				end)
+			end
 		else
 			slot.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
 			slot.BackgroundTransparency = 0.15
@@ -157,10 +197,10 @@ function AbilityHotbar.start()
 		end
 		for i, key in KEYCODES do
 			if input.KeyCode == key then
-				activateSlot(i)
-				-- brief press flash
+				local def = SLOT_DEFS[i]
+				activateSlot(i, true)
 				local slot = slots[i]
-				if slot and SLOT_DEFS[i] then
+				if slot and def and not def.hold then
 					local old = slot.BackgroundColor3
 					slot.BackgroundColor3 = Color3.fromRGB(50, 80, 130)
 					task.delay(0.08, function()
@@ -168,6 +208,18 @@ function AbilityHotbar.start()
 							slot.BackgroundColor3 = old
 						end
 					end)
+				end
+				return
+			end
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		for i, key in KEYCODES do
+			if input.KeyCode == key then
+				local def = SLOT_DEFS[i]
+				if def and def.hold then
+					activateSlot(i, false)
 				end
 				return
 			end

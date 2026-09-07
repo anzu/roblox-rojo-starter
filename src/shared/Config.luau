@@ -4,23 +4,45 @@
 local Config = {
 	GameName = "Spirit Blade",
 
-	-- Melee (M1) — basic drawn-blade sword attack, 3-hit combo
-	MeleeRange = 10,
-	MeleeHitboxSize = Vector3.new(8, 6, 10),
-	MeleeCooldown = 0.32,
+	-- Zanjutsu / Melee (M1) — 3-hit combo
+	MeleeRange = 12,
+	MeleeHitboxSize = Vector3.new(10, 7, 12),
+	MeleeCooldown = 0.38,
 	MeleeComboMax = 3,
 	MeleeDamage = { 10, 14, 22 },
-	MeleeComboReset = 0.9,
-	MeleeLungeSpeed = 12, -- soft nudge; swing anim carries the feel
+	MeleeComboReset = 1.0,
+	MeleeLungeSpeed = 10,
 	MeleeLungeDuration = 0.08,
-	MeleeHitDelay = 0.1, -- mid-swing (~synced with Transform strike)
+	MeleeHitDelay = 0.18, -- mid-late slash (~synced with Transform strike)
+	MeleeConeAngleDeg = 70, -- forward cone for magnet / forgiving hits
+	MeleeMagnetRange = 10, -- Voidspawn inside cone within this range still count
+	MeleeFinisherKnockback = 28, -- hit 3 knockback speed
+	MeleeFinisherStunSeconds = 0.65,
 
-	-- Flash Step (hotbar 1) — short controlled dash
+	-- Swing timing (client Transform) — must stay coherent with MeleeHitDelay
+	SwingTotal = 0.40,
+	SwingWindupEnd = 0.10,
+	SwingStrikeEnd = 0.26,
+
+	-- Sprint (LeftShift hold)
+	WalkSpeedDefault = 16,
+	SprintWalkSpeed = 28,
+	SprintFovBoost = 8, -- optional FOV bump while sprinting
+	SprintSpiritDrainPerSecond = 0, -- free for foundation; set >0 to tax Spirit
+
+	-- Camera lock (LeftControl toggle)
+	CameraLockSoftAssist = true,
+	CameraLockSoftRange = 40,
+	CameraLockSoftConeDeg = 55,
+	CameraLockSoftYawStrength = 0.12, -- blend per frame toward target yaw (subtle)
+
+	-- Flash Step (hotbar 1)
 	FlashStepDistance = 11,
 	FlashStepDuration = 0.07,
 	FlashStepCooldown = 2,
 	FlashStepCost = 15,
 	FlashStepIFrames = 0.15,
+	FlashStepCancelSwingAfter = 0.22, -- cancel late-swing recovery if Flash Step after this elapsed
 
 	-- Spirit Wave (hotbar 2)
 	SpiritWaveSpeed = 70,
@@ -30,10 +52,17 @@ local Config = {
 	SpiritWaveLifetime = 2.5,
 	SpiritWaveSize = Vector3.new(2.2, 2.2, 4),
 
-	-- Spirit Power meter
+	-- Spirit Guard (hold F / hotbar 3)
+	GuardDamageMult = 0.25, -- frontal melee chip when blocking
+	GuardSpiritDrainPerSecond = 6,
+	GuardSpiritCostOnBlock = 4,
+	GuardMinSpirit = 1, -- drop guard if Spirit below this
+
+	-- Reiatsu / Spirit Power meter
 	SpiritPowerMax = 100,
 	SpiritPowerRegenPerSecond = 8,
 	MeleeSpiritCost = 0,
+	MeleeSpiritGainOnHit = 4, -- gain small Spirit on successful melee hit
 
 	-- Voidspawn PvE
 	VoidspawnCount = 2,
@@ -42,6 +71,8 @@ local Config = {
 	VoidspawnWalkSpeed = 16,
 	VoidspawnIdleWalkSpeed = 6,
 	VoidspawnMeleeRange = 5.5,
+	VoidspawnStandoff = 5.5, -- stop this far from player (melee ring)
+	VoidspawnTooClose = 3, -- back up / strafe inside this
 	VoidspawnAttackCooldown = 1.25,
 	VoidspawnRespawnDelay = 8,
 	VoidspawnSpawnRadius = 70,
@@ -50,6 +81,7 @@ local Config = {
 	VoidspawnDeaggroRadius = 35,
 	VoidspawnSpawnDelay = 4,
 	VoidspawnPlayerGraceSeconds = 6,
+	VoidspawnFacingDot = 0.35, -- must roughly face player to attack
 
 	-- Misc
 	FriendlyFire = true,

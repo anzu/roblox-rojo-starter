@@ -1,5 +1,5 @@
--- Lightweight client VFX: Transform swing (via SwingController), flash-step, hits.
--- Floating SlashFX part removed — user found it hard to aim; blade trail is enough.
+-- Lightweight client VFX: Transform swing (via SwingController), flash-step, hits, guard.
+-- Floating SlashFX part removed — blade trail is enough.
 
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
@@ -43,7 +43,6 @@ local function slashFX(payload: any)
 	end
 
 	if character then
-		-- Local already started on input; only fill in if missed. Others always play.
 		if character == localPlayer.Character then
 			if not SwingController.isPlaying(character) then
 				SwingController.play(character, combo)
@@ -52,7 +51,6 @@ local function slashFX(payload: any)
 			SwingController.play(character, combo)
 		end
 	end
-	-- No floating transparent SlashFX part — blade Trail from SwingController only.
 end
 
 local function flashStepFX(payload: any)
@@ -126,6 +124,49 @@ local function hitFX(payload: any)
 	fadePart(spark, 0.18)
 end
 
+local function guardFX(payload: any)
+	local pos: Vector3 = payload.position or Vector3.zero
+	if payload.active and not payload.position then
+		local character = Players.LocalPlayer.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if root and root:IsA("BasePart") then
+			pos = root.Position
+		end
+	end
+	local shield = Instance.new("Part")
+	shield.Name = "GuardFX"
+	shield.Shape = Enum.PartType.Ball
+	shield.Anchored = true
+	shield.CanCollide = false
+	shield.CanQuery = false
+	shield.CanTouch = false
+	shield.Material = Enum.Material.ForceField
+	shield.Color = Color3.fromRGB(140, 220, 160)
+	shield.Size = Vector3.new(2.2, 2.2, 2.2)
+	shield.CFrame = CFrame.new(pos)
+	shield.Transparency = 0.35
+	shield.Parent = workspace
+	fadePart(shield, 0.22)
+end
+
+local function stunFX(payload: any)
+	local pos: Vector3 = payload.position or Vector3.zero
+	local ring = Instance.new("Part")
+	ring.Name = "StunFX"
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.CanTouch = false
+	ring.Material = Enum.Material.ForceField
+	ring.Color = Color3.fromRGB(255, 220, 100)
+	ring.Size = Vector3.new(0.3, 3.5, 3.5)
+	ring.CFrame = CFrame.new(pos + Vector3.new(0, 2.5, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	ring.Transparency = 0.3
+	ring.Parent = workspace
+	fadePart(ring, 0.4)
+end
+
 local function deathFX(payload: any)
 	local pos: Vector3 = payload.position or Vector3.zero
 	local puff = Instance.new("Part")
@@ -188,6 +229,10 @@ function CombatVFX.start()
 			spiritWaveHint(payload)
 		elseif kind == CombatTypes.Fx.Hit then
 			hitFX(payload)
+		elseif kind == CombatTypes.Fx.Guard then
+			guardFX(payload)
+		elseif kind == CombatTypes.Fx.Stun then
+			stunFX(payload)
 		elseif kind == CombatTypes.Fx.Death then
 			deathFX(payload)
 		elseif kind == CombatTypes.Fx.Deny then

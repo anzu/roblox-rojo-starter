@@ -1,5 +1,6 @@
--- Combat input: M1 = sword attack (auto-unsheath), E = sheath toggle.
+-- Combat input: M1 = sword attack (auto-unsheath), E = sheath toggle, F = Spirit Guard hold.
 -- Local swing starts immediately; server remains authoritative for damage.
+-- Flash Step (via hotbar) can cancel late-swing recovery for combat feel.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -15,12 +16,24 @@ local InputController = {}
 
 local localCombo = 0
 local lastLocalSwing = 0
+local guarding = false
 
 local function isTyping(): boolean
 	return UserInputService:GetFocusedTextBox() ~= nil
 end
 
+local function setGuard(on: boolean)
+	if guarding == on then
+		return
+	end
+	guarding = on
+	Remotes.get("RequestGuard"):FireServer(on)
+end
+
 local function requestMelee()
+	if guarding then
+		return -- can't swing while holding guard
+	end
 	local t = os.clock()
 	if t - lastLocalSwing > Config.MeleeComboReset then
 		localCombo = 0
@@ -41,6 +54,22 @@ end
 
 local function requestToggleSheath()
 	Remotes.get("RequestToggleSheath"):FireServer()
+end
+
+-- Called by AbilityHotbar before firing Flash Step — cancel late recovery for snappy combat
+function InputController.tryCancelSwingForFlashStep()
+	local character = Players.LocalPlayer.Character
+	if character and SwingController.isInLateRecovery(character) then
+		SwingController.cancel(character)
+	end
+end
+
+function InputController.isGuarding(): boolean
+	return guarding
+end
+
+function InputController.setGuardFromHotbar(on: boolean)
+	setGuard(on)
 end
 
 function InputController.start()
@@ -64,6 +93,12 @@ function InputController.start()
 			return
 		end
 
+		-- Hold F = Spirit Guard (works even if gameProcessed for reliability)
+		if input.KeyCode == Enum.KeyCode.F then
+			setGuard(true)
+			return
+		end
+
 		if gameProcessed then
 			return
 		end
@@ -73,11 +108,30 @@ function InputController.start()
 		end
 	end)
 
+	UserInputService.InputEnded:Connect(function(input)
+		if input.KeyCode == Enum.KeyCode.F then
+			setGuard(false)
+		end
+	end)
+
 	UserInputService.TouchTap:Connect(function(_positions, gameProcessed)
 		if gameProcessed or isTyping() then
 			return
 		end
 		requestMelee()
+	end)
+
+	Players.LocalPlayer.CharacterRemoving:Connect(function(character)
+		SwingController.cancel(character)
+		if guarding then
+			setGuard(false)
+		end
+	end)
+
+	Players.LocalPlayer.CharacterAdded:Connect(function()
+		if guarding then
+			setGuard(false)
+		end
 	end)
 end
 

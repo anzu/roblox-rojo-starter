@@ -1,4 +1,4 @@
--- Server-authoritative melee / flash step / spirit wave.
+-- Server-authoritative melee / flash step / spirit wave / spirit guard.
 
 local Players = game:GetService("Players")
 local Debris = game:GetService("Debris")
@@ -72,7 +72,6 @@ local function lookCFrame(root: BasePart): CFrame
 	return CFrame.lookAt(root.Position, root.Position + look)
 end
 
-
 local function flatLookFromRoot(root: BasePart): Vector3
 	local look = root.CFrame.LookVector
 	local flat = Vector3.new(look.X, 0, look.Z)
@@ -89,15 +88,25 @@ local function meleeHitboxCFrame(character: Model, root: BasePart): CFrame
 	if katana and katana:IsA("Model") then
 		local blade = katana:FindFirstChild("Blade")
 		if blade and blade:IsA("BasePart") and blade.Transparency < 1 then
-			local center = blade.Position + flat * (Config.MeleeHitboxSize.Z * 0.25)
+			local center = blade.Position + flat * (Config.MeleeHitboxSize.Z * 0.2)
 			return CFrame.lookAt(center, center + flat)
 		end
 	end
 	local origin = root.Position + Vector3.new(0, 0.5, 0)
-	local center = origin + flat * (Config.MeleeHitboxSize.Z * 0.5 + 1)
+	local center = origin + flat * (Config.MeleeHitboxSize.Z * 0.45 + 1)
 	return CFrame.lookAt(center, center + flat)
 end
 
+local function inForwardCone(origin: Vector3, lookFlat: Vector3, targetPos: Vector3, range: number, coneDeg: number): boolean
+	local offset = targetPos - origin
+	local flat = Vector3.new(offset.X, 0, offset.Z)
+	local dist = flat.Magnitude
+	if dist > range or dist < 0.01 then
+		return false
+	end
+	local coneCos = math.cos(math.rad(coneDeg))
+	return lookFlat:Dot(flat.Unit) >= coneCos
+end
 
 local function deny(player: Player, reason: string?)
 	Remotes.get("CombatFX"):FireClient(player, {
@@ -117,13 +126,17 @@ function CombatService.handleMelee(player: Player)
 		return
 	end
 
+	-- Can't melee while guarding
+	if SpiritPowerService.isGuarding(player) then
+		return
+	end
+
 	local s = getState(player)
 	local t = now()
 	if t < s.meleeReadyAt then
 		return
 	end
 
-	-- Auto-unsheath on first M1 when sheathed
 	SwordService.ensureUnsheathed(character)
 
 	if not SpiritPowerService.trySpend(player, Config.MeleeSpiritCost) then
@@ -139,26 +152,26 @@ function CombatService.handleMelee(player: Player)
 	s.meleeReadyAt = t + Config.MeleeCooldown
 
 	local damage = Config.MeleeDamage[s.index] or Config.MeleeDamage[1]
+	local comboIndex = s.index
 	local cf = lookCFrame(root)
 	local hitCF = meleeHitboxCFrame(character, root)
 
-	-- Soft lunge so swing animation reads (not a teleport-slide)
+	-- Soft lunge — never freeze WalkSpeed / MoveDirection
 	root.AssemblyLinearVelocity = Vector3.new(
 		cf.LookVector.X * Config.MeleeLungeSpeed,
 		root.AssemblyLinearVelocity.Y,
 		cf.LookVector.Z * Config.MeleeLungeSpeed
 	)
 
-	-- FX for other clients (local swing starts on input via SwingController)
 	Remotes.get("CombatFX"):FireAllClients({
 		kind = CombatTypes.Fx.Slash,
 		position = hitCF.Position,
 		cframe = hitCF,
-		combo = s.index,
+		combo = comboIndex,
 		userId = player.UserId,
 	})
 
-	local hitDelay = Config.MeleeHitDelay or 0.1
+	local hitDelay = Config.MeleeHitDelay or 0.18
 	task.delay(hitDelay, function()
 		if not character.Parent then
 			return
@@ -172,16 +185,26 @@ function CombatService.handleMelee(player: Player)
 			return
 		end
 
+		local lookFlat = flatLookFromRoot(rootNow)
 		local boxCF = meleeHitboxCFrame(character, rootNow)
 
 		local overlap = OverlapParams.new()
 		overlap.FilterType = Enum.RaycastFilterType.Exclude
 		overlap.FilterDescendantsInstances = { character }
 
-		-- Large forgiving box; also a sphere around the same center for near-misses
 		local parts = workspace:GetPartBoundsInBox(boxCF, Config.MeleeHitboxSize, overlap)
-		local radius = math.max(Config.MeleeHitboxSize.X, Config.MeleeHitboxSize.Z) * 0.45
+		local radius = math.max(Config.MeleeHitboxSize.X, Config.MeleeHitboxSize.Z) * 0.5
 		local sphereParts = workspace:GetPartBoundsInRadius(boxCF.Position, radius, overlap)
+
+		-- Also query near the blade tip
+		local bladeParts: { BasePart } = {}
+		local katana = character:FindFirstChild("SpiritBlade")
+		if katana then
+			local blade = katana:FindFirstChild("Blade")
+			if blade and blade:IsA("BasePart") and blade.Transparency < 1 then
+				bladeParts = workspace:GetPartBoundsInRadius(blade.Position, 4.5, overlap)
+			end
+		end
 
 		local hitModels: { [Model]: boolean } = {}
 		local function consider(part: BasePart)
@@ -190,7 +213,6 @@ function CombatService.handleMelee(player: Player)
 				local hum = model:FindFirstChildOfClass("Humanoid")
 				if hum and hum.Health > 0 then
 					hitModels[model] = true
-					DamageService.apply(player, hum, damage, "Melee")
 				end
 			end
 		end
@@ -200,11 +222,55 @@ function CombatService.handleMelee(player: Player)
 		for _, part in sphereParts do
 			consider(part)
 		end
+		for _, part in bladeParts do
+			consider(part)
+		end
+
+		-- Magnet: Voidspawn within MeleeMagnetRange inside forward cone count as hits
+		local magnetRange = Config.MeleeMagnetRange or 10
+		local coneDeg = Config.MeleeConeAngleDeg or 70
+		for _, model in CollectionService:GetTagged(CombatTypes.Tags.Voidspawn) do
+			if model:IsA("Model") and not hitModels[model] then
+				local hum = model:FindFirstChildOfClass("Humanoid")
+				local targetRoot = model:FindFirstChild("HumanoidRootPart")
+				if hum and hum.Health > 0 and targetRoot and targetRoot:IsA("BasePart") then
+					if inForwardCone(rootNow.Position, lookFlat, targetRoot.Position, magnetRange, coneDeg) then
+						hitModels[model] = true
+					end
+				end
+			end
+		end
+
+		local anyHit = false
+		for model, _ in hitModels do
+			local hum = model:FindFirstChildOfClass("Humanoid")
+			if hum and hum.Health > 0 then
+				local applied = DamageService.apply(player, hum, damage, "Melee", rootNow.Position)
+				if applied then
+					anyHit = true
+					-- Zanjutsu finisher: hit 3 knockback + brief stun on Voidspawn
+					if comboIndex >= Config.MeleeComboMax and CollectionService:HasTag(model, CombatTypes.Tags.Voidspawn) then
+						local targetRoot = model:FindFirstChild("HumanoidRootPart")
+						if targetRoot and targetRoot:IsA("BasePart") then
+							local dir = targetRoot.Position - rootNow.Position
+							DamageService.applyKnockback(model, dir, Config.MeleeFinisherKnockback or 28)
+							DamageService.applyStun(model, Config.MeleeFinisherStunSeconds or 0.65)
+						end
+					end
+				end
+			end
+		end
+
+		if anyHit then
+			local gain = Config.MeleeSpiritGainOnHit or 0
+			if gain > 0 then
+				SpiritPowerService.gain(player, gain)
+			end
+		end
 	end)
 end
 
 local function dashDirection(humanoid: Humanoid, root: BasePart): Vector3
-	-- Prefer MoveDirection for controllable dashes; fall back to look
 	local move = humanoid.MoveDirection
 	if move.Magnitude > 0.1 then
 		local flat = Vector3.new(move.X, 0, move.Z)
@@ -231,6 +297,10 @@ function CombatService.handleFlashStep(player: Player)
 		return
 	end
 
+	if SpiritPowerService.isGuarding(player) then
+		SpiritPowerService.setGuarding(player, false)
+	end
+
 	local s = getState(player)
 	local t = now()
 	if t < s.flashReadyAt then
@@ -246,7 +316,6 @@ function CombatService.handleFlashStep(player: Player)
 	local cf = CFrame.lookAt(root.Position, root.Position + direction)
 	local distance = Config.FlashStepDistance
 
-	-- Raycast to avoid clipping into walls
 	local rayParams = RaycastParams.new()
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
 	rayParams.FilterDescendantsInstances = { character }
@@ -268,7 +337,6 @@ function CombatService.handleFlashStep(player: Player)
 		userId = player.UserId,
 	})
 
-	-- Reliable teleport: PivotTo preferred, fallback CFrame
 	if character.PrimaryPart then
 		character:PivotTo(goalCF)
 	else
@@ -362,9 +430,38 @@ function CombatService.handleSpiritWave(player: Player)
 		local hum = model:FindFirstChildOfClass("Humanoid")
 		if hum and hum.Health > 0 then
 			hitSet[model] = true
-			DamageService.apply(player, hum, Config.SpiritWaveDamage, "SpiritWave")
+			DamageService.apply(player, hum, Config.SpiritWaveDamage, "SpiritWave", part.Position)
 		end
 	end)
+end
+
+function CombatService.handleGuard(player: Player, on: boolean)
+	local character = player.Character
+	if not character then
+		SpiritPowerService.setGuarding(player, false)
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		SpiritPowerService.setGuarding(player, false)
+		return
+	end
+
+	if on then
+		local current = SpiritPowerService.get(player)
+		if current < (Config.GuardMinSpirit or 1) then
+			deny(player, "Not enough Spirit Power")
+			SpiritPowerService.setGuarding(player, false)
+			return
+		end
+		SpiritPowerService.setGuarding(player, true)
+		Remotes.get("CombatFX"):FireClient(player, {
+			kind = CombatTypes.Fx.Guard,
+			active = true,
+		})
+	else
+		SpiritPowerService.setGuarding(player, false)
+	end
 end
 
 function CombatService.start()
@@ -380,6 +477,9 @@ function CombatService.start()
 	end)
 	Remotes.get("RequestSpiritWave").OnServerEvent:Connect(function(player)
 		CombatService.handleSpiritWave(player)
+	end)
+	Remotes.get("RequestGuard").OnServerEvent:Connect(function(player, on)
+		CombatService.handleGuard(player, on == true)
 	end)
 end
 

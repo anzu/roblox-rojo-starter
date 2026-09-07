@@ -1,5 +1,5 @@
 -- Spawns Voidspawn NPCs near world spawn; aggro-radius AI + melee; respawn after death.
--- Ignores players during spawn delay / per-character grace.
+-- Stays on ground (no jump/climb onto player). Standoff melee ring. Ignores players during grace.
 
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
@@ -142,6 +142,8 @@ local function createVoidspawnModel(position: Vector3): Model
 	humanoid.WalkSpeed = Config.VoidspawnIdleWalkSpeed
 	humanoid.HipHeight = 2
 	humanoid.AutoRotate = true
+	humanoid.JumpPower = 0
+	humanoid.JumpHeight = 0
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
 	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.DisplayWhenDamaged
 	humanoid.Parent = model
@@ -170,7 +172,6 @@ local function createVoidspawnModel(position: Vector3): Model
 	return model
 end
 
--- Nearest living player outside grace window.
 local function nearestPlayerRoot(fromPos: Vector3): (Player?, BasePart?, number)
 	local bestPlayer: Player? = nil
 	local bestRoot: BasePart? = nil
@@ -182,7 +183,8 @@ local function nearestPlayerRoot(fromPos: Vector3): (Player?, BasePart?, number)
 				local hum = character:FindFirstChildOfClass("Humanoid")
 				local root = character:FindFirstChild("HumanoidRootPart")
 				if hum and hum.Health > 0 and root and root:IsA("BasePart") then
-					local d = (root.Position - fromPos).Magnitude
+					local offset = root.Position - fromPos
+					local d = Vector3.new(offset.X, 0, offset.Z).Magnitude
 					if d < bestDist then
 						bestDist = d
 						bestPlayer = player
@@ -195,12 +197,68 @@ local function nearestPlayerRoot(fromPos: Vector3): (Player?, BasePart?, number)
 	return bestPlayer, bestRoot, bestDist
 end
 
+-- Flatten to NPC Y; offset away from player by standoff along NPC→player vector.
+local function standoffGoal(npcRoot: BasePart, playerRoot: BasePart): Vector3
+	local standoff = Config.VoidspawnStandoff or 5.5
+	local npcPos = npcRoot.Position
+	local playerPos = playerRoot.Position
+	local flat = Vector3.new(playerPos.X - npcPos.X, 0, playerPos.Z - npcPos.Z)
+	local dist = flat.Magnitude
+	local dir: Vector3
+	if dist < 0.05 then
+		dir = Vector3.new(0, 0, -1)
+	else
+		dir = flat.Unit
+	end
+	-- Goal = player position flattened to NPC Y, then back away by standoff
+	local groundPlayer = Vector3.new(playerPos.X, npcPos.Y, playerPos.Z)
+	return groundPlayer - dir * standoff
+end
+
+local function backupGoal(npcRoot: BasePart, playerRoot: BasePart): Vector3
+	local npcPos = npcRoot.Position
+	local playerPos = playerRoot.Position
+	local flat = Vector3.new(npcPos.X - playerPos.X, 0, npcPos.Z - playerPos.Z)
+	if flat.Magnitude < 0.05 then
+		-- Strafe sideways if overlapping
+		local look = npcRoot.CFrame.RightVector
+		flat = Vector3.new(look.X, 0, look.Z)
+		if flat.Magnitude < 0.05 then
+			flat = Vector3.new(1, 0, 0)
+		end
+	end
+	flat = flat.Unit
+	local standoff = Config.VoidspawnStandoff or 5.5
+	return Vector3.new(playerPos.X, npcPos.Y, playerPos.Z) + flat * standoff
+end
+
+local function horizontalDist(a: Vector3, b: Vector3): number
+	return Vector3.new(a.X - b.X, 0, a.Z - b.Z).Magnitude
+end
+
+local function isFacing(npcRoot: BasePart, targetPos: Vector3): boolean
+	local flat = Vector3.new(targetPos.X - npcRoot.Position.X, 0, targetPos.Z - npcRoot.Position.Z)
+	if flat.Magnitude < 0.05 then
+		return true
+	end
+	local look = npcRoot.CFrame.LookVector
+	local lookFlat = Vector3.new(look.X, 0, look.Z)
+	if lookFlat.Magnitude < 0.05 then
+		return false
+	end
+	return lookFlat.Unit:Dot(flat.Unit) >= (Config.VoidspawnFacingDot or 0.35)
+end
+
 local function runAI(model: Model)
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	local root = model:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not humanoid or not root then
 		return
 	end
+
+	-- Enforce no-jump every think (stun restore shouldn't re-enable jump)
+	humanoid.JumpPower = 0
+	humanoid.JumpHeight = 0
 
 	local lastAttack = 0
 	local aggroRoot: BasePart? = nil
@@ -209,9 +267,14 @@ local function runAI(model: Model)
 
 	task.spawn(function()
 		while model.Parent and humanoid.Health > 0 do
+			humanoid.JumpPower = 0
+			humanoid.JumpHeight = 0
+
+			-- Skip movement orders while stunned
+			local stunned = model:GetAttribute(CombatTypes.Tags.Stunned) == true
+
 			local _, nearestRoot, nearestDist = nearestPlayerRoot(root.Position)
 
-			-- Drop aggro if target gone, dead, left radius, or entered grace
 			if aggroRoot then
 				if not aggroRoot.Parent then
 					aggroRoot = nil
@@ -226,7 +289,7 @@ local function runAI(model: Model)
 					elseif aggroPlayer and isPlayerInGrace(aggroPlayer) then
 						aggroRoot = nil
 					else
-						local d = (aggroRoot.Position - root.Position).Magnitude
+						local d = horizontalDist(aggroRoot.Position, root.Position)
 						if d > Config.VoidspawnDeaggroRadius then
 							aggroRoot = nil
 						end
@@ -234,45 +297,61 @@ local function runAI(model: Model)
 				end
 			end
 
-			-- Acquire only when inside AggroRadius AND grace expired (nearestPlayerRoot already filters grace)
 			if not aggroRoot and nearestRoot and nearestDist <= Config.VoidspawnAggroRadius then
 				aggroRoot = nearestRoot
 			end
 
-			if aggroRoot then
-				humanoid.WalkSpeed = Config.VoidspawnWalkSpeed
-				local dist = (aggroRoot.Position - root.Position).Magnitude
-				humanoid:MoveTo(aggroRoot.Position)
+			if not stunned then
+				if aggroRoot then
+					humanoid.WalkSpeed = Config.VoidspawnWalkSpeed
+					local dist = horizontalDist(aggroRoot.Position, root.Position)
+					local tooClose = Config.VoidspawnTooClose or 3
+					local meleeRange = Config.VoidspawnMeleeRange or 5.5
 
-				if dist <= Config.VoidspawnMeleeRange then
-					local t = now()
-					if t - lastAttack >= Config.VoidspawnAttackCooldown then
-						lastAttack = t
-						local targetModel = aggroRoot.Parent
-						if targetModel and targetModel:IsA("Model") then
-							local targetHum = targetModel:FindFirstChildOfClass("Humanoid")
-							if targetHum then
-								Remotes.get("CombatFX"):FireAllClients({
-									kind = CombatTypes.Fx.Slash,
-									position = root.Position + root.CFrame.LookVector * 2,
-									cframe = root.CFrame,
-									combo = 1,
-									userId = nil,
-								})
-								DamageService.apply(nil, targetHum, Config.VoidspawnDamage, "VoidspawnMelee")
+					if dist < tooClose then
+						-- Back up / strafe — don't walk into torso/head
+						humanoid:MoveTo(backupGoal(root, aggroRoot))
+					elseif dist > meleeRange then
+						-- Approach standoff ring (never enter player AABB center)
+						humanoid:MoveTo(standoffGoal(root, aggroRoot))
+					else
+						-- In melee ring: face player, hold position
+						local face = Vector3.new(aggroRoot.Position.X, root.Position.Y, aggroRoot.Position.Z)
+						root.CFrame = CFrame.lookAt(root.Position, face)
+						humanoid:MoveTo(root.Position)
+					end
+
+					-- Attack only in horizontal melee range while facing
+					if dist <= meleeRange and dist >= (tooClose * 0.5) and isFacing(root, aggroRoot.Position) then
+						local t = now()
+						if t - lastAttack >= Config.VoidspawnAttackCooldown then
+							lastAttack = t
+							local targetModel = aggroRoot.Parent
+							if targetModel and targetModel:IsA("Model") then
+								local targetHum = targetModel:FindFirstChildOfClass("Humanoid")
+								if targetHum then
+									Remotes.get("CombatFX"):FireAllClients({
+										kind = CombatTypes.Fx.Slash,
+										position = root.Position + root.CFrame.LookVector * 2,
+										cframe = root.CFrame,
+										combo = 1,
+										userId = nil,
+									})
+									DamageService.apply(nil, targetHum, Config.VoidspawnDamage, "VoidspawnMelee", root.Position)
+								end
 							end
 						end
 					end
+				else
+					humanoid.WalkSpeed = Config.VoidspawnIdleWalkSpeed
+					local t = now()
+					if t >= nextPatrolAt then
+						nextPatrolAt = t + (3 + math.random() * 4)
+						local offset = randomOffset(6)
+						humanoid:MoveTo(Vector3.new(idleAnchor.X + offset.X, root.Position.Y, idleAnchor.Z + offset.Z))
+					end
 				end
-			else
-				humanoid.WalkSpeed = Config.VoidspawnIdleWalkSpeed
-				local t = now()
-				if t >= nextPatrolAt then
-					nextPatrolAt = t + (3 + math.random() * 4)
-					local offset = randomOffset(6)
-					humanoid:MoveTo(idleAnchor + offset)
-				end
-			end
+			end -- not stunned
 
 			task.wait(Config.VoidspawnThinkInterval)
 		end
