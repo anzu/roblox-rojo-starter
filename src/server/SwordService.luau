@@ -1,10 +1,13 @@
--- Metal katana + separate saya (scabbard) on back. No neon / lightsaber look.
+-- Metal uchigatana + separate saya (scabbard) on back.
+-- Bleach-inspired zanpakutō silhouette; player-facing name remains Spirit Blade.
+-- Procedural Parts only — no neon / lightsaber look, no MeshId dependency.
 
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CombatTypes = require(ReplicatedStorage.Shared.CombatTypes)
+local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local SwordService = {}
@@ -13,6 +16,9 @@ local KATANA_NAME = "SpiritBlade"
 local SAYA_NAME = "SpiritSaya"
 local ATTR_SHEATHED = "Sheathed"
 local debugPrinted = false
+
+-- Tunables from Config (fallback if older Config)
+local SW = Config.Sword or {}
 
 local function findTorso(character: Model): BasePart?
 	local upper = character:FindFirstChild("UpperTorso")
@@ -49,8 +55,39 @@ local function makePart(props: {
 	material: Enum.Material,
 	parent: Instance,
 	reflectance: number?,
+	shape: Enum.PartType?,
 }): Part
 	local p = Instance.new("Part")
+	p.Name = props.name
+	p.Size = props.size
+	p.Color = props.color
+	p.Material = props.material
+	p.Transparency = 0
+	p.Reflectance = props.reflectance or 0
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.Anchored = false
+	p.CastShadow = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	if props.shape then
+		p.Shape = props.shape
+	end
+	p.Parent = props.parent
+	return p
+end
+
+local function makeWedge(props: {
+	name: string,
+	size: Vector3,
+	color: Color3,
+	material: Enum.Material,
+	parent: Instance,
+	reflectance: number?,
+}): WedgePart
+	local p = Instance.new("WedgePart")
 	p.Name = props.name
 	p.Size = props.size
 	p.Color = props.color
@@ -76,138 +113,255 @@ local function weldConstraint(a: BasePart, b: BasePart)
 	w.Parent = a
 end
 
--- Dark brown/black scabbard — always on the back.
+--------------------------------------------------------------------------
+-- Saya (scabbard) — always on the back
+--------------------------------------------------------------------------
+
 local function buildSayaModel(): Model
 	local model = Instance.new("Model")
 	model.Name = SAYA_NAME
 
+	-- Matching katana blade length (~4.6 studs) — dark lacquered wood look
 	local body = makePart({
 		name = "SayaBody",
-		size = Vector3.new(0.32, 4.0, 0.28),
-		color = Color3.fromRGB(28, 18, 12),
-		material = Enum.Material.SmoothPlastic,
-		parent = model,
-		reflectance = 0.05,
-	})
-
-	local mouth = makePart({
-		name = "SayaMouth",
-		size = Vector3.new(0.38, 0.28, 0.34),
-		color = Color3.fromRGB(18, 12, 8),
-		material = Enum.Material.Metal,
-		parent = model,
-		reflectance = 0.2,
-	})
-	mouth.CFrame = body.CFrame * CFrame.new(0, 2.05, 0)
-	weldConstraint(body, mouth)
-
-	local tip = makePart({
-		name = "SayaTip",
-		size = Vector3.new(0.3, 0.35, 0.26),
+		size = Vector3.new(0.34, 4.6, 0.30),
 		color = Color3.fromRGB(22, 14, 10),
 		material = Enum.Material.SmoothPlastic,
 		parent = model,
+		reflectance = 0.08,
 	})
-	tip.CFrame = body.CFrame * CFrame.new(0, -2.1, 0)
-	weldConstraint(body, tip)
 
+	-- Koiguchi — mouth ring at the open end (+Y)
+	local mouth = makePart({
+		name = "Koiguchi",
+		size = Vector3.new(0.42, 0.22, 0.38),
+		color = Color3.fromRGB(40, 36, 34),
+		material = Enum.Material.Metal,
+		parent = model,
+		reflectance = 0.28,
+	})
+	mouth.CFrame = body.CFrame * CFrame.new(0, 2.38, 0)
+	weldConstraint(body, mouth)
+
+	-- Soft inner lip so the mouth reads as a ring
+	local mouthLip = makePart({
+		name = "KoiguchiLip",
+		size = Vector3.new(0.28, 0.12, 0.24),
+		color = Color3.fromRGB(16, 10, 8),
+		material = Enum.Material.SmoothPlastic,
+		parent = model,
+		reflectance = 0.04,
+	})
+	mouthLip.CFrame = body.CFrame * CFrame.new(0, 2.22, 0)
+	weldConstraint(body, mouthLip)
+
+	-- Kojiri — end cap at the tip (-Y)
+	local kojiri = makePart({
+		name = "Kojiri",
+		size = Vector3.new(0.36, 0.32, 0.32),
+		color = Color3.fromRGB(32, 28, 26),
+		material = Enum.Material.Metal,
+		parent = model,
+		reflectance = 0.22,
+	})
+	kojiri.CFrame = body.CFrame * CFrame.new(0, -2.42, 0)
+	weldConstraint(body, kojiri)
+
+	-- Sageo / mid band (fabric wrap accent)
 	local band = makePart({
 		name = "SayaBand",
-		size = Vector3.new(0.36, 0.2, 0.32),
-		color = Color3.fromRGB(50, 30, 18),
+		size = Vector3.new(0.38, 0.18, 0.34),
+		color = Color3.fromRGB(48, 28, 18),
 		material = Enum.Material.Fabric,
 		parent = model,
 	})
-	band.CFrame = body.CFrame * CFrame.new(0, 0.6, 0)
+	band.CFrame = body.CFrame * CFrame.new(0, 0.55, 0)
 	weldConstraint(body, band)
+
+	-- Second accent ring near tip
+	local band2 = makePart({
+		name = "SayaBandLower",
+		size = Vector3.new(0.36, 0.14, 0.32),
+		color = Color3.fromRGB(36, 22, 14),
+		material = Enum.Material.Fabric,
+		parent = model,
+	})
+	band2.CFrame = body.CFrame * CFrame.new(0, -1.4, 0)
+	weldConstraint(body, band2)
 
 	model.PrimaryPart = body
 	return model
 end
 
--- Normal metal katana: steel blade, dark ito wrap, simple tsuba. NO neon / PointLight.
+--------------------------------------------------------------------------
+-- Katana (drawn) — readable uchigatana from 10+ studs
+-- Local +Y = tip direction; Handle is PrimaryPart at tsuka center
+--------------------------------------------------------------------------
+
 local function buildKatanaModel(): Model
 	local model = Instance.new("Model")
 	model.Name = KATANA_NAME
 
+	-- Longer tsuka (~1.5 studs) for two-hand kenjutsu read
 	local handle = makePart({
 		name = "Handle",
-		size = Vector3.new(0.32, 1.15, 0.32),
-		color = Color3.fromRGB(32, 28, 26),
+		size = Vector3.new(0.28, 1.50, 0.28),
+		color = Color3.fromRGB(28, 24, 22),
 		material = Enum.Material.SmoothPlastic,
 		parent = model,
 	})
 
-	local wrap = makePart({
-		name = "ItoWrap",
-		size = Vector3.new(0.36, 0.95, 0.36),
-		color = Color3.fromRGB(45, 40, 38),
-		material = Enum.Material.Fabric,
-		parent = model,
-	})
-	wrap.CFrame = handle.CFrame * CFrame.new(0, 0.05, 0)
-	weldConstraint(handle, wrap)
+	-- Alternating ito wrap bands (Fabric / Plastic) for diamond-wrap look
+	local itoColors = {
+		Color3.fromRGB(38, 34, 32),
+		Color3.fromRGB(52, 48, 46),
+	}
+	local itoMats = { Enum.Material.Fabric, Enum.Material.SmoothPlastic }
+	local bandCount = 9
+	local bandSpan = 1.28 -- along handle, leave room for kashira / fuchi
+	local bandH = bandSpan / bandCount * 0.72
+	local startY = -0.58
+	for i = 1, bandCount do
+		local t = (i - 1) / (bandCount - 1)
+		local y = startY + t * bandSpan
+		local idx = ((i - 1) % 2) + 1
+		local wrap = makePart({
+			name = "ItoBand" .. i,
+			size = Vector3.new(0.34, bandH, 0.34),
+			color = itoColors[idx],
+			material = itoMats[idx],
+			parent = model,
+		})
+		wrap.CFrame = handle.CFrame * CFrame.new(0, y, 0)
+		weldConstraint(handle, wrap)
+	end
 
-	local pommel = makePart({
-		name = "Pommel",
-		size = Vector3.new(0.38, 0.22, 0.38),
-		color = Color3.fromRGB(90, 90, 95),
+	-- Kashira — metal pommel at butt of handle (-Y)
+	local kashira = makePart({
+		name = "Kashira",
+		size = Vector3.new(0.20, 0.36, 0.36),
+		color = Color3.fromRGB(72, 74, 80),
 		material = Enum.Material.Metal,
 		parent = model,
-		reflectance = 0.25,
+		reflectance = 0.32,
+		shape = Enum.PartType.Cylinder,
 	})
-	pommel.CFrame = handle.CFrame * CFrame.new(0, -0.62, 0)
-	weldConstraint(handle, pommel)
+	-- Cylinder axis is local X; rotate so flat faces point along blade axis
+	kashira.CFrame = handle.CFrame * CFrame.new(0, -0.82, 0) * CFrame.Angles(0, 0, math.rad(90))
+	weldConstraint(handle, kashira)
 
-	-- Simple round-ish tsuba
-	local guard = makePart({
+	-- Fuchi — collar ring just below tsuba
+	local fuchi = makePart({
+		name = "Fuchi",
+		size = Vector3.new(0.34, 0.12, 0.34),
+		color = Color3.fromRGB(68, 70, 76),
+		material = Enum.Material.Metal,
+		parent = model,
+		reflectance = 0.28,
+	})
+	fuchi.CFrame = handle.CFrame * CFrame.new(0, 0.72, 0)
+	weldConstraint(handle, fuchi)
+
+	-- Round tsuba (guard) — dark metal, wider than handle (reads from afar)
+	local tsuba = makePart({
 		name = "Tsuba",
-		size = Vector3.new(0.95, 0.12, 0.95),
-		color = Color3.fromRGB(70, 72, 78),
+		size = Vector3.new(0.10, 1.10, 1.10), -- Cylinder: height along X, then rotate
+		color = Color3.fromRGB(48, 50, 56),
 		material = Enum.Material.Metal,
 		parent = model,
-		reflectance = 0.3,
+		reflectance = 0.35,
+		shape = Enum.PartType.Cylinder,
 	})
-	guard.CFrame = handle.CFrame * CFrame.new(0, 0.62, 0)
-	weldConstraint(handle, guard)
+	tsuba.CFrame = handle.CFrame * CFrame.new(0, 0.82, 0) * CFrame.Angles(0, 0, math.rad(90))
+	weldConstraint(handle, tsuba)
 
-	local blade = makePart({
-		name = "Blade",
-		size = Vector3.new(0.22, 3.9, 0.08),
-		color = Color3.fromRGB(190, 195, 205),
-		material = Enum.Material.Metal,
-		parent = model,
-		reflectance = 0.45,
-	})
-	blade.CFrame = handle.CFrame * CFrame.new(0, 2.7, 0)
-	weldConstraint(handle, blade)
-
-	local edge = makePart({
-		name = "BladeEdge",
-		size = Vector3.new(0.06, 3.7, 0.05),
-		color = Color3.fromRGB(220, 225, 230),
-		material = Enum.Material.SmoothPlastic,
-		parent = model,
-		reflectance = 0.55,
-	})
-	edge.CFrame = blade.CFrame * CFrame.new(0.1, 0, 0)
-	weldConstraint(blade, edge)
-
-	local tip = makePart({
-		name = "BladeTip",
-		size = Vector3.new(0.18, 0.4, 0.07),
-		color = Color3.fromRGB(200, 205, 215),
+	-- Subtle hex accent plates on tsuba faces (reads as ornamental guard)
+	local tsubaAccent = makePart({
+		name = "TsubaAccent",
+		size = Vector3.new(0.95, 0.04, 0.95),
+		color = Color3.fromRGB(58, 60, 68),
 		material = Enum.Material.Metal,
 		parent = model,
 		reflectance = 0.4,
 	})
-	tip.CFrame = blade.CFrame * CFrame.new(0, 2.05, 0)
-	weldConstraint(blade, tip)
+	tsubaAccent.CFrame = handle.CFrame * CFrame.new(0, 0.82, 0)
+	weldConstraint(handle, tsubaAccent)
+
+	-- Habaki — blade collar above tsuba (hidden when sheathed)
+	local habaki = makePart({
+		name = "Habaki",
+		size = Vector3.new(0.26, 0.28, 0.18),
+		color = Color3.fromRGB(160, 150, 110),
+		material = Enum.Material.Metal,
+		parent = model,
+		reflectance = 0.45,
+	})
+	habaki.CFrame = handle.CFrame * CFrame.new(0, 1.02, 0)
+	weldConstraint(handle, habaki)
+
+	-- Main blade — longer & thinner (~4.6 × ~0.18 thick), steel Metal
+	local bladeLen = 4.55
+	local blade = makePart({
+		name = "Blade",
+		size = Vector3.new(0.20, bladeLen, 0.17),
+		color = Color3.fromRGB(188, 194, 204),
+		material = Enum.Material.Metal,
+		parent = model,
+		reflectance = 0.42,
+	})
+	-- Habaki top ~1.16; blade starts just above and extends to tip
+	local bladeCenterY = 1.16 + bladeLen * 0.5
+	blade.CFrame = handle.CFrame * CFrame.new(0, bladeCenterY, 0)
+	weldConstraint(handle, blade)
+
+	-- Darker spine (mune) strip — NOT Neon
+	local spine = makePart({
+		name = "BladeSpine",
+		size = Vector3.new(0.05, bladeLen * 0.96, 0.14),
+		color = Color3.fromRGB(110, 116, 128),
+		material = Enum.Material.Metal,
+		parent = model,
+		reflectance = 0.25,
+	})
+	spine.CFrame = blade.CFrame * CFrame.new(-0.09, 0, 0)
+	weldConstraint(blade, spine)
+
+	-- Lighter edge (ha) strip — steel highlight, still Metal/Plastic not Neon
+	local edge = makePart({
+		name = "BladeEdge",
+		size = Vector3.new(0.05, bladeLen * 0.94, 0.10),
+		color = Color3.fromRGB(228, 232, 238),
+		material = Enum.Material.SmoothPlastic,
+		parent = model,
+		reflectance = 0.55,
+	})
+	edge.CFrame = blade.CFrame * CFrame.new(0.09, 0, 0)
+	weldConstraint(blade, edge)
+
+	-- Kissaki — angled tip wedge (reads as real katana tip)
+	local kissaki = makeWedge({
+		name = "Kissaki",
+		size = Vector3.new(0.17, 0.48, 0.20),
+		color = Color3.fromRGB(200, 206, 216),
+		material = Enum.Material.Metal,
+		parent = model,
+		reflectance = 0.4,
+	})
+	-- Wedge: thick end toward blade, point toward tip. Orient so slope faces edge side.
+	local tipY = bladeCenterY + bladeLen * 0.5 + 0.02
+	kissaki.CFrame = handle.CFrame
+		* CFrame.new(0, tipY, 0)
+		* CFrame.Angles(0, math.rad(90), math.rad(90))
+	weldConstraint(blade, kissaki)
 
 	model.PrimaryPart = handle
 	CollectionService:AddTag(model, CombatTypes.Tags.SpiritBlade)
 	return model
 end
+
+--------------------------------------------------------------------------
+-- Motors / C0
+--------------------------------------------------------------------------
 
 local function getMotor(model: Model, name: string): Motor6D
 	local existing = model:FindFirstChild(name)
@@ -220,40 +374,55 @@ local function getMotor(model: Model, name: string): Motor6D
 	return motor
 end
 
--- Saya on UpperTorso/Torso: diagonal across BACK, mouth near right shoulder, tip toward left hip.
--- Positive Z is character back. Blade/saya long axis is local +Y.
+-- Shared back-mount orientation: diagonal across BACK.
+-- Positive Z is character back on UpperTorso. Blade/saya long axis is local +Y.
+-- 180° flip seats tip down-back; roll puts mouth near shoulder.
+local function backMountAngles(): CFrame
+	local pitch = SW.BackPitchDeg or 14
+	local yaw = SW.BackYawDeg or 8
+	local roll = SW.BackRollDeg or -38
+	return CFrame.Angles(math.rad(pitch), math.rad(yaw), math.rad(roll))
+		* CFrame.Angles(math.rad(180), math.rad(0), 0)
+end
+
 local function sayaC0(): CFrame
-	return CFrame.new(0.05, 0.15, 0.78)
-		* CFrame.Angles(math.rad(12), math.rad(0), math.rad(-32))
-		* CFrame.Angles(math.rad(180), math.rad(0), 0)
+	local o = SW.SayaOffset or Vector3.new(0.12, 0.22, 0.88)
+	return CFrame.new(o.X, o.Y, o.Z) * backMountAngles()
 end
 
--- Sheathed katana: same back mount as saya; handle sticks out the mouth (near shoulder).
+-- Sheathed katana shares saya orientation; extra local-Y (pre-angle translation
+-- in torso space is approximate — we also nudge along mount) so handle + tsuba
+-- clear the koiguchi. Blade body is Transparency-hidden inside saya.
 local function sheathedBladeC0(): CFrame
-	-- Slightly raised so handle/tsuba clear the saya mouth; blade body sits inside saya.
-	return CFrame.new(0.05, 0.55, 0.78)
-		* CFrame.Angles(math.rad(12), math.rad(0), math.rad(-32))
-		* CFrame.Angles(math.rad(180), math.rad(0), 0)
+	local o = SW.SayaOffset or Vector3.new(0.12, 0.22, 0.88)
+	local extra = SW.SheathedHandleExtra or Vector3.new(0.02, 0.72, 0.02)
+	return CFrame.new(o.X + extra.X, o.Y + extra.Y, o.Z + extra.Z) * backMountAngles()
 end
 
--- Drawn grip on RightHand / Right Arm — blade forward-up, not through the arm.
+-- Drawn grip on RightHand / Right Arm — blade forward/up, natural kenjutsu hold.
 local function unsheathedC0(hand: BasePart): CFrame
 	if hand.Name == "RightHand" then
-		-- R15: palm grip, blade extends along fingers / forward
-		return CFrame.new(0, -0.15, 0)
+		local o = SW.DrawnR15Offset or Vector3.new(0, -0.12, 0.02)
+		local grip = SW.DrawnR15GripAlong or -0.62 -- along handle toward tsuba from palm
+		return CFrame.new(o.X, o.Y, o.Z)
 			* CFrame.Angles(math.rad(-90), math.rad(90), 0)
-			* CFrame.new(0, -0.55, 0)
+			* CFrame.new(0, grip, 0)
 	end
 	-- R6 Right Arm
-	return CFrame.new(0, -1.05, -0.15)
+	local o = SW.DrawnR6Offset or Vector3.new(0, -1.05, -0.12)
+	local grip = SW.DrawnR6GripAlong or -0.62
+	return CFrame.new(o.X, o.Y, o.Z)
 		* CFrame.Angles(math.rad(-90), math.rad(90), 0)
-		* CFrame.new(0, -0.55, 0)
+		* CFrame.new(0, grip, 0)
 end
 
+-- Blade-side parts hidden while sheathed (handle / ito / tsuba / kashira stay visible)
 local BLADE_HIDE_NAMES = {
 	Blade = true,
+	BladeSpine = true,
 	BladeEdge = true,
-	BladeTip = true,
+	Kissaki = true,
+	Habaki = true,
 }
 
 local function setBladeHidden(model: Model, hidden: boolean)
@@ -350,7 +519,7 @@ function SwordService.applySheathState(character: Model, sheathed: boolean)
 		motor.Part0 = torso
 		motor.C0 = sheathedBladeC0()
 		motor.C1 = CFrame.new()
-		setBladeHidden(katana, true) -- only handle/tsuba/pommel visible sticking from saya
+		setBladeHidden(katana, true) -- handle / ito / tsuba / kashira stick out of saya mouth
 	else
 		local hand = findRightHand(character)
 		if not hand then

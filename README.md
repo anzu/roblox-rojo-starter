@@ -3,7 +3,7 @@
 Bleach-inspired anime combat sandbox for Roblox — spirit reapers vs Voidspawn. Edit Luau here → Studio updates live via [Rojo](https://rojo.space).
 
 **Game name:** Spirit Blade  
-**Sword:** Metal katana + dark saya (scabbard) — saya stays on your back; **E** draws/sheaths the blade into the right hand  
+**Sword:** Higher-fidelity metal uchigatana (tsuba / ito wrap / kissaki) + dark saya on back — **E** draws/sheaths into the right hand  
 **Melee (Zanjutsu):** Sword Attack (M1) — auto-unsheaths; **arm-driven** Motor6D.Transform swing (sword welded to hand); hit 3 knocks back + briefly stuns Voidspawn  
 **Sprint:** **Shift** hold (WalkSpeed boost)  
 **Camera:** **Ctrl** toggles mouse-lock combat aim (+ subtle soft assist toward nearby Voidspawn)  
@@ -47,7 +47,7 @@ Mobile: on-screen **E Sheath** button; tap/hold hotbar slots for abilities; tap 
 
 ## What you should see in Play
 
-1. A **dark saya on your back** at spawn. **E** draws a **metal katana** into your right hand — **no neon / lightsaber glow**.
+1. A **dark saya on your back** at spawn (koiguchi mouth + kojiri tip). **E** draws a long thin **metal katana** (steel blade, dark ito wrap, round tsuba) into your right hand — **no neon / lightsaber glow**. Sheathed: only handle + tsuba stick out of the saya mouth.
 2. **M1** plays a fluid **~0.5s arm-chain Transform slash** (RightShoulder + RightElbow + RightWrist — **blade stays welded**, never self-animates). Horizontal / diagonal / overhead with a soft blade trail. Hits mid-late swing; forgiving wide hitbox + Voidspawn magnet cone (~10 studs).
 3. **Hit 3** knocks Voidspawn back and briefly stuns them.
 4. **Shift** sprints; **Ctrl** locks mouse to center and rotates you toward camera look (subtle soft yaw toward Voidspawn in front).
@@ -95,7 +95,7 @@ Try, in order:
 
 - `shared/Config.luau` — all tunables (melee, sprint, guard, Voidspawn, soft lock)
 - `shared/Remotes.luau` — `ReplicatedStorage.CombatRemotes`
-- `server/SwordService.luau` — metal katana + back saya (Motor6D sheath)
+- `server/SwordService.luau` — uchigatana + back saya Parts kit (Motor6D sheath; offsets in Config.Sword)
 - `server/CombatService.luau` — Zanjutsu melee (forgiving hitbox + magnet), flash step, spirit wave, guard
 - `server/DamageService.luau` — damage, guard chip, knockback/stun
 - `server/SpiritPowerService.luau` — Reiatsu regen / spend / gain-on-hit / guard drain

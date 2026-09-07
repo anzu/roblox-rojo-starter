@@ -83,6 +83,20 @@ local Config = {
 	VoidspawnPlayerGraceSeconds = 6,
 	VoidspawnFacingDot = 0.35, -- must roughly face player to attack
 
+	-- Spirit Blade / uchigatana Motor6D offsets (bleach-inspired visual; UI name unchanged)
+	-- Back mount: diagonal across UpperTorso back — handle near shoulder, tip down-back (not through chest)
+	Sword = {
+		SayaOffset = Vector3.new(0.12, 0.22, 0.88), -- torso-space position of saya center
+		SheathedHandleExtra = Vector3.new(0.02, 0.72, 0.02), -- nudge so tsuka+tsuba clear koiguchi
+		BackPitchDeg = 14,
+		BackYawDeg = 8,
+		BackRollDeg = -38,
+		DrawnR15Offset = Vector3.new(0, -0.12, 0.02),
+		DrawnR15GripAlong = -0.62, -- along handle from palm toward tip (negative = grip mid-tsuka)
+		DrawnR6Offset = Vector3.new(0, -1.05, -0.12),
+		DrawnR6GripAlong = -0.62,
+	},
+
 	-- Misc
 	FriendlyFire = true,
 	KillerTagSeconds = 4,

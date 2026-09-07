@@ -154,11 +154,11 @@ Future upgrade path: upload real R15 `Animation` assets to Roblox and load via `
 
 ---
 
-## 8. Current state (as of 2026-09-07, tip `178f564`)
+## 8. Current state (as of 2026-09-07)
 
 ### Working
 - Rojo sync project; Spirit Blade bootstrap
-- Metal katana + back saya; E draw/sheath
+- Higher-fidelity metal uchigatana + back saya (Parts kit); E draw/sheath
 - Hotbar 1–9 (1–3 live)
 - ArmAnimator full-arm swings + Wave/Flash/Guard poses
 - Sprint Shift / Ctrl lock / soft assist
