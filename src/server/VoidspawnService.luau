@@ -1,4 +1,4 @@
--- Spawns Voidspawn NPCs near world spawn; simple MoveTo AI + melee; respawn after death.
+-- Spawns Voidspawn NPCs near world spawn; aggro-radius AI + melee; respawn after death.
 
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
@@ -120,7 +120,7 @@ local function createVoidspawnModel(position: Vector3): Model
 	local humanoid = Instance.new("Humanoid")
 	humanoid.MaxHealth = Config.VoidspawnHealth
 	humanoid.Health = Config.VoidspawnHealth
-	humanoid.WalkSpeed = Config.VoidspawnWalkSpeed
+	humanoid.WalkSpeed = Config.VoidspawnIdleWalkSpeed
 	humanoid.HipHeight = 2
 	humanoid.AutoRotate = true
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
@@ -151,7 +151,7 @@ local function createVoidspawnModel(position: Vector3): Model
 	return model
 end
 
-local function nearestPlayerRoot(fromPos: Vector3): (Player?, BasePart?)
+local function nearestPlayerRoot(fromPos: Vector3): (Player?, BasePart?, number)
 	local bestPlayer: Player? = nil
 	local bestRoot: BasePart? = nil
 	local bestDist = math.huge
@@ -170,7 +170,7 @@ local function nearestPlayerRoot(fromPos: Vector3): (Player?, BasePart?)
 			end
 		end
 	end
-	return bestPlayer, bestRoot
+	return bestPlayer, bestRoot, bestDist
 end
 
 local function runAI(model: Model)
@@ -181,23 +181,48 @@ local function runAI(model: Model)
 	end
 
 	local lastAttack = 0
+	local aggroRoot: BasePart? = nil
+	local idleAnchor = root.Position
+	local nextPatrolAt = 0
 
 	task.spawn(function()
 		while model.Parent and humanoid.Health > 0 do
-			local _, targetRoot = nearestPlayerRoot(root.Position)
-			if targetRoot then
-				local dist = (targetRoot.Position - root.Position).Magnitude
-				humanoid:MoveTo(targetRoot.Position)
+			local _, nearestRoot, nearestDist = nearestPlayerRoot(root.Position)
+
+			-- Acquire / keep / lose aggro
+			if aggroRoot then
+				if not aggroRoot.Parent then
+					aggroRoot = nil
+				else
+					local aggroHum = aggroRoot.Parent and aggroRoot.Parent:FindFirstChildOfClass("Humanoid")
+					if not aggroHum or aggroHum.Health <= 0 then
+						aggroRoot = nil
+					else
+						local d = (aggroRoot.Position - root.Position).Magnitude
+						if d > Config.VoidspawnDeaggroRadius then
+							aggroRoot = nil
+						end
+					end
+				end
+			end
+
+			if not aggroRoot and nearestRoot and nearestDist <= Config.VoidspawnAggroRadius then
+				aggroRoot = nearestRoot
+			end
+
+			if aggroRoot then
+				humanoid.WalkSpeed = Config.VoidspawnWalkSpeed
+				local dist = (aggroRoot.Position - root.Position).Magnitude
+				humanoid:MoveTo(aggroRoot.Position)
 
 				if dist <= Config.VoidspawnMeleeRange then
 					local t = os.clock()
 					if t - lastAttack >= Config.VoidspawnAttackCooldown then
 						lastAttack = t
-						local targetModel = targetRoot.Parent
+						local targetModel = aggroRoot.Parent
 						if targetModel and targetModel:IsA("Model") then
 							local targetHum = targetModel:FindFirstChildOfClass("Humanoid")
 							if targetHum then
-								-- Brief claw flash
 								Remotes.get("CombatFX"):FireAllClients({
 									kind = CombatTypes.Fx.Slash,
 									position = root.Position + root.CFrame.LookVector * 2,
@@ -210,7 +235,17 @@ local function runAI(model: Model)
 						end
 					end
 				end
+			else
+				-- Idle: slower walk, tiny patrol or hold position
+				humanoid.WalkSpeed = Config.VoidspawnIdleWalkSpeed
+				local t = os.clock()
+				if t >= nextPatrolAt then
+					nextPatrolAt = t + (3 + math.random() * 4)
+					local offset = randomOffset(6)
+					humanoid:MoveTo(idleAnchor + offset)
+				end
 			end
+
 			task.wait(Config.VoidspawnThinkInterval)
 		end
 	end)
@@ -220,7 +255,6 @@ local function runAI(model: Model)
 			kind = CombatTypes.Fx.Death,
 			position = root.Position,
 		})
-		-- Remove from active list
 		for i = #active, 1, -1 do
 			if active[i] == model then
 				table.remove(active, i)
@@ -236,7 +270,6 @@ end
 function VoidspawnService.spawnOne()
 	local origin = getSpawnOrigin()
 	local pos = origin + randomOffset(Config.VoidspawnSpawnRadius)
-	-- Keep above ground roughly
 	pos = Vector3.new(pos.X, origin.Y + 3, pos.Z)
 	local model = createVoidspawnModel(pos)
 	table.insert(active, model)
@@ -246,7 +279,6 @@ end
 
 function VoidspawnService.start()
 	task.defer(function()
-		-- Wait a moment for baseplate/spawn to exist
 		task.wait(1)
 		for _ = 1, Config.VoidspawnCount do
 			VoidspawnService.spawnOne()

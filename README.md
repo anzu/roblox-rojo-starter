@@ -3,7 +3,8 @@
 Bleach-inspired anime combat sandbox for Roblox — spirit reapers vs Voidspawn. Edit Luau here → Studio updates live via [Rojo](https://rojo.space).
 
 **Game name:** Spirit Blade  
-**Abilities:** Spirit Slash (M1), Flash Step (Q), Spirit Wave (E)  
+**Abilities:** Spirit Slash (M1), Flash Step (1), Spirit Wave (2)  
+**Sword:** Neon spirit blade — sheathed on back by default; **E** toggles sheath  
 **Meter:** Spirit Power (regenerates; spent on Flash Step / Spirit Wave)
 
 ## Quick start every session
@@ -22,25 +23,28 @@ Press **Play**.
 Output should show:
 
 - `[Spirit Blade] Server combat systems online.`
-- `[Spirit Blade] Client ready. M1 slash · Q flash step · E spirit wave`
+- `[Spirit Blade] Client ready. E sheath · M1 slash · 1 flash · 2 wave`
 
 ## Controls
 
 | Input | Action |
 |-------|--------|
-| **Mouse1** / tap | Spirit Slash — 3-hit melee combo |
-| **Q** | Flash Step — short dash (costs Spirit Power, ~2s CD) |
-| **E** | Spirit Wave — ranged projectile (costs Spirit Power, ~5s CD) |
+| **E** | Toggle sheath / unsheath spirit blade |
+| **Mouse1** / tap | Spirit Slash — auto-unsheaths on first swing; 3-hit combo |
+| **1** | Flash Step — short dash (costs Spirit Power, ~2s CD) |
+| **2** | Spirit Wave — ranged projectile (costs Spirit Power, ~5s CD) |
+| **3–9** | Reserved (no-op) |
 
-Mobile: on-screen buttons for Flash Step / Spirit Wave; tap to slash.
+Mobile: on-screen buttons for **1 Flash Step**, **2 Spirit Wave**, and **E Sheath**; tap to slash.
 
 ## What you should see in Play
 
-1. Spirit Power bar at the bottom of the screen + control hints.
-2. 1–2 **Voidspawn** NPCs near spawn — they walk toward you and melee.
-3. Slash hitboxes, dash trails, and cyan Spirit Wave parts.
-4. PvP friendly fire on (sandbox) — players can damage each other with the same abilities.
-5. Voidspawn respawn ~8s after death.
+1. Neon cyan/white **spirit blade** on your back (sheathed) — **E** moves it to your hand.
+2. Spirit Power bar at the bottom of the screen + control hints.
+3. 1–2 **Voidspawn** NPCs near spawn — they idle until you enter aggro range (~35 studs), chase inside that radius, and deaggro beyond ~50.
+4. Slash hitboxes, dash trails, and cyan Spirit Wave parts.
+5. PvP friendly fire on (sandbox) — players can damage each other with the same abilities.
+6. Voidspawn respawn ~8s after death.
 
 ## Mac setup (once)
 
@@ -59,11 +63,12 @@ Mobile: on-screen buttons for Flash Step / Spirit Wave; tap to slash.
 
 ### Key modules
 
-- `shared/Config.luau` — all tunables (`GameName`, damage, cooldowns, Spirit Power, Voidspawn)
+- `shared/Config.luau` — all tunables (`GameName`, damage, cooldowns, Spirit Power, Voidspawn aggro)
 - `shared/Remotes.luau` — creates `ReplicatedStorage.CombatRemotes`
 - `shared/CombatTypes.luau` — ability / FX ids
+- `server/SwordService.luau` — welded spirit blade + sheath toggle
 - `server/CombatService.luau` — server-authoritative melee, dash, projectile
-- `server/VoidspawnService.luau` — PvE spawn + AI
+- `server/VoidspawnService.luau` — PvE spawn + aggro AI
 - `client/InputController.luau` / `SpiritUI.luau` / `CombatVFX.luau`
 
 Tune numbers in **one place**: `src/shared/Config.luau`.

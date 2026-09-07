@@ -4,7 +4,7 @@
 local Config = {
 	GameName = "Spirit Blade",
 
-	-- Melee (M1) — 3-hit combo
+	-- Melee (M1) — 3-hit combo (requires unsheathed; auto-unsheath on first M1)
 	MeleeRange = 8,
 	MeleeHitboxSize = Vector3.new(6, 5, 8),
 	MeleeCooldown = 0.32,
@@ -14,14 +14,14 @@ local Config = {
 	MeleeLungeSpeed = 28,
 	MeleeLungeDuration = 0.08,
 
-	-- Flash Step (Q)
+	-- Flash Step (key 1)
 	FlashStepDistance = 28,
 	FlashStepDuration = 0.12,
 	FlashStepCooldown = 2,
-	FlashStepCost = 20,
+	FlashStepCost = 15,
 	FlashStepIFrames = 0.2,
 
-	-- Spirit Wave (E)
+	-- Spirit Wave (key 2)
 	SpiritWaveSpeed = 70,
 	SpiritWaveDamage = 28,
 	SpiritWaveCooldown = 5,
@@ -39,11 +39,14 @@ local Config = {
 	VoidspawnHealth = 80,
 	VoidspawnDamage = 12,
 	VoidspawnWalkSpeed = 16,
+	VoidspawnIdleWalkSpeed = 6,
 	VoidspawnMeleeRange = 5.5,
 	VoidspawnAttackCooldown = 1.25,
 	VoidspawnRespawnDelay = 8,
 	VoidspawnSpawnRadius = 28,
 	VoidspawnThinkInterval = 0.25,
+	VoidspawnAggroRadius = 35,
+	VoidspawnDeaggroRadius = 50,
 
 	-- Misc
 	FriendlyFire = true,

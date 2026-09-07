@@ -80,7 +80,7 @@ function SpiritUI.start()
 	hints.Name = "Controls"
 	hints.AnchorPoint = Vector2.new(0, 0)
 	hints.Position = UDim2.fromOffset(16, 40)
-	hints.Size = UDim2.fromOffset(320, 54)
+	hints.Size = UDim2.fromOffset(360, 72)
 	hints.BackgroundTransparency = 1
 	hints.Font = Enum.Font.Gotham
 	hints.TextSize = 14
@@ -88,8 +88,33 @@ function SpiritUI.start()
 	hints.TextYAlignment = Enum.TextYAlignment.Top
 	hints.TextColor3 = Color3.fromRGB(210, 220, 235)
 	hints.TextStrokeTransparency = 0.55
-	hints.Text = "M1 — Spirit Slash\nQ — Flash Step\nE — Spirit Wave"
+	hints.Text = "E — Sheath / Unsheath\nM1 — Spirit Slash (auto-unsheath)\n1 — Flash Step · 2 — Spirit Wave"
 	hints.Parent = gui
+
+	local denyLabel = Instance.new("TextLabel")
+	denyLabel.Name = "DenyNotice"
+	denyLabel.AnchorPoint = Vector2.new(0.5, 1)
+	denyLabel.Position = UDim2.new(0.5, 0, 1, -60)
+	denyLabel.Size = UDim2.fromOffset(320, 22)
+	denyLabel.BackgroundTransparency = 1
+	denyLabel.Font = Enum.Font.GothamBold
+	denyLabel.TextSize = 16
+	denyLabel.TextColor3 = Color3.fromRGB(255, 140, 140)
+	denyLabel.TextStrokeTransparency = 0.4
+	denyLabel.Text = ""
+	denyLabel.Parent = gui
+
+	local denyToken = 0
+	local function showDeny(reason: string)
+		denyToken += 1
+		local token = denyToken
+		denyLabel.Text = reason
+		task.delay(1.4, function()
+			if denyToken == token then
+				denyLabel.Text = ""
+			end
+		end)
+	end
 
 	local function setPower(current: number, maxPower: number)
 		local ratio = 0
@@ -104,7 +129,12 @@ function SpiritUI.start()
 		setPower(tonumber(current) or 0, tonumber(maxPower) or Config.SpiritPowerMax)
 	end)
 
-	-- Seed from attribute if already set
+	Remotes.get("CombatFX").OnClientEvent:Connect(function(payload)
+		if typeof(payload) == "table" and payload.kind == "Deny" then
+			showDeny(tostring(payload.reason or "Denied"))
+		end
+	end)
+
 	local attr = player:GetAttribute("SpiritPower")
 	if typeof(attr) == "number" then
 		setPower(attr, Config.SpiritPowerMax)

@@ -11,6 +11,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local DamageService = require(script.Parent.DamageService)
 local SpiritPowerService = require(script.Parent.SpiritPowerService)
+local SwordService = require(script.Parent.SwordService)
 
 local CombatService = {}
 
@@ -71,6 +72,13 @@ local function lookCFrame(root: BasePart): CFrame
 	return CFrame.lookAt(root.Position, root.Position + look)
 end
 
+local function deny(player: Player, reason: string?)
+	Remotes.get("CombatFX"):FireClient(player, {
+		kind = CombatTypes.Fx.Deny,
+		reason = reason or "Not enough Spirit Power",
+	})
+end
+
 function CombatService.handleMelee(player: Player)
 	local character = player.Character
 	if not character then
@@ -88,7 +96,11 @@ function CombatService.handleMelee(player: Player)
 		return
 	end
 
+	-- Auto-unsheath on first M1 when sheathed
+	SwordService.ensureUnsheathed(character)
+
 	if not SpiritPowerService.trySpend(player, Config.MeleeSpiritCost) then
+		deny(player, "Not enough Spirit Power")
 		return
 	end
 
@@ -103,20 +115,12 @@ function CombatService.handleMelee(player: Player)
 	local cf = lookCFrame(root)
 	local hitCenter = cf.Position + cf.LookVector * (Config.MeleeHitboxSize.Z * 0.5 + 1)
 
-	-- Brief lunge via LinearVelocity
-	local attachment = root:FindFirstChild("RootAttachment") :: Attachment?
-	if not attachment then
-		attachment = Instance.new("Attachment")
-		attachment.Name = "RootAttachment"
-		attachment.Parent = root
-	end
-	local lv = Instance.new("LinearVelocity")
-	lv.Attachment0 = attachment
-	lv.MaxForce = 1e5
-	lv.VectorVelocity = cf.LookVector * Config.MeleeLungeSpeed
-	lv.RelativeTo = Enum.ActuatorRelativeTo.World
-	lv.Parent = root
-	Debris:AddItem(lv, Config.MeleeLungeDuration)
+	-- Brief lunge via AssemblyLinearVelocity (more reliable than LinearVelocity alone)
+	root.AssemblyLinearVelocity = Vector3.new(
+		cf.LookVector.X * Config.MeleeLungeSpeed,
+		root.AssemblyLinearVelocity.Y,
+		cf.LookVector.Z * Config.MeleeLungeSpeed
+	)
 
 	Remotes.get("CombatFX"):FireAllClients({
 		kind = CombatTypes.Fx.Slash,
@@ -166,6 +170,7 @@ function CombatService.handleFlashStep(player: Player)
 		return
 	end
 	if not SpiritPowerService.trySpend(player, Config.FlashStepCost) then
+		deny(player, "Not enough Spirit Power")
 		return
 	end
 	s.flashReadyAt = t + Config.FlashStepCooldown
@@ -187,6 +192,7 @@ function CombatService.handleFlashStep(player: Player)
 
 	local startPos = root.Position
 	local goal = startPos + direction * distance
+	local goalCF = CFrame.new(goal) * (cf - cf.Position)
 
 	Remotes.get("CombatFX"):FireAllClients({
 		kind = CombatTypes.Fx.FlashStep,
@@ -195,22 +201,21 @@ function CombatService.handleFlashStep(player: Player)
 		userId = player.UserId,
 	})
 
-	-- Instant reposition + brief velocity for feel
-	root.CFrame = CFrame.new(goal) * (cf - cf.Position)
-
-	local attachment = root:FindFirstChild("RootAttachment") :: Attachment?
-	if not attachment then
-		attachment = Instance.new("Attachment")
-		attachment.Name = "RootAttachment"
-		attachment.Parent = root
+	-- Reliable teleport: PivotTo preferred, fallback CFrame
+	if character.PrimaryPart then
+		character:PivotTo(goalCF)
+	else
+		root.CFrame = goalCF
 	end
-	local lv = Instance.new("LinearVelocity")
-	lv.Attachment0 = attachment
-	lv.MaxForce = 1e5
-	lv.VectorVelocity = direction * (distance / math.max(Config.FlashStepDuration, 0.05))
-	lv.RelativeTo = Enum.ActuatorRelativeTo.World
-	lv.Parent = root
-	Debris:AddItem(lv, Config.FlashStepDuration)
+
+	local dashSpeed = distance / math.max(Config.FlashStepDuration, 0.05)
+	root.AssemblyLinearVelocity = direction * dashSpeed
+	task.delay(Config.FlashStepDuration, function()
+		if root.Parent then
+			local v = root.AssemblyLinearVelocity
+			root.AssemblyLinearVelocity = Vector3.new(v.X * 0.2, v.Y, v.Z * 0.2)
+		end
+	end)
 end
 
 function CombatService.handleSpiritWave(player: Player)
@@ -230,6 +235,7 @@ function CombatService.handleSpiritWave(player: Player)
 		return
 	end
 	if not SpiritPowerService.trySpend(player, Config.SpiritWaveCost) then
+		deny(player, "Not enough Spirit Power")
 		return
 	end
 	s.waveReadyAt = t + Config.SpiritWaveCooldown

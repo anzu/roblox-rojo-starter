@@ -1,4 +1,4 @@
--- Lightweight client VFX: slash parts, flash-step trail, hit sparks.
+-- Lightweight client VFX: slash parts, flash-step trail, hit sparks, deny flash.
 
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
@@ -58,7 +58,6 @@ local function flashStepFX(payload: any)
 	trail.Parent = workspace
 	fadePart(trail, 0.28)
 
-	-- Afterimage ghost at start
 	local ghost = Instance.new("Part")
 	ghost.Name = "FlashGhost"
 	ghost.Anchored = true
@@ -75,7 +74,6 @@ local function flashStepFX(payload: any)
 end
 
 local function spiritWaveHint(payload: any)
-	-- Server already spawns the damaging part; soft ring at cast
 	local pos: Vector3 = payload.position or Vector3.zero
 	local ring = Instance.new("Part")
 	ring.Name = "WaveCast"
@@ -134,6 +132,31 @@ local function deathFX(payload: any)
 	Debris:AddItem(puff, 0.5)
 end
 
+local function denyFX(_payload: any)
+	local character = Players.LocalPlayer.Character
+	if not character then
+		return
+	end
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then
+		return
+	end
+	local pulse = Instance.new("Part")
+	pulse.Name = "DenyFX"
+	pulse.Shape = Enum.PartType.Ball
+	pulse.Anchored = true
+	pulse.CanCollide = false
+	pulse.CanQuery = false
+	pulse.CanTouch = false
+	pulse.Material = Enum.Material.Neon
+	pulse.Color = Color3.fromRGB(255, 90, 90)
+	pulse.Size = Vector3.new(1.5, 1.5, 1.5)
+	pulse.CFrame = CFrame.new(root.Position)
+	pulse.Transparency = 0.2
+	pulse.Parent = workspace
+	fadePart(pulse, 0.25)
+end
+
 function CombatVFX.start()
 	Remotes.get("CombatFX").OnClientEvent:Connect(function(payload)
 		if typeof(payload) ~= "table" then
@@ -150,11 +173,11 @@ function CombatVFX.start()
 			hitFX(payload)
 		elseif kind == CombatTypes.Fx.Death then
 			deathFX(payload)
+		elseif kind == CombatTypes.Fx.Deny then
+			denyFX(payload)
 		end
+		-- Sheath FX is visual via welded blade; no extra VFX needed
 	end)
-
-	-- Silence unused local warning for Players if any
-	local _ = Players.LocalPlayer
 end
 
 return CombatVFX

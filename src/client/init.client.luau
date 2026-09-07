@@ -15,4 +15,4 @@ SpiritUI.start()
 InputController.start()
 CombatVFX.start()
 
-print(string.format("[%s] Client ready. M1 slash · Q flash step · E spirit wave", Config.GameName))
+print(string.format("[%s] Client ready. E sheath · M1 slash · 1 flash · 2 wave", Config.GameName))
