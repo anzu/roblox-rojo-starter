@@ -153,6 +153,23 @@ function CombatService.handleMelee(player: Player)
 	end
 end
 
+local function dashDirection(humanoid: Humanoid, root: BasePart): Vector3
+	-- Prefer MoveDirection for controllable dashes; fall back to look
+	local move = humanoid.MoveDirection
+	if move.Magnitude > 0.1 then
+		local flat = Vector3.new(move.X, 0, move.Z)
+		if flat.Magnitude > 0.05 then
+			return flat.Unit
+		end
+	end
+	local look = root.CFrame.LookVector
+	local flatLook = Vector3.new(look.X, 0, look.Z)
+	if flatLook.Magnitude < 0.05 then
+		return Vector3.new(0, 0, -1)
+	end
+	return flatLook.Unit
+end
+
 function CombatService.handleFlashStep(player: Player)
 	local character = player.Character
 	if not character then
@@ -175,8 +192,8 @@ function CombatService.handleFlashStep(player: Player)
 	end
 	s.flashReadyAt = t + Config.FlashStepCooldown
 
-	local cf = lookCFrame(root)
-	local direction = cf.LookVector
+	local direction = dashDirection(humanoid, root)
+	local cf = CFrame.lookAt(root.Position, root.Position + direction)
 	local distance = Config.FlashStepDistance
 
 	-- Raycast to avoid clipping into walls

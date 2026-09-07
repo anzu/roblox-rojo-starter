@@ -4,7 +4,7 @@
 local Config = {
 	GameName = "Spirit Blade",
 
-	-- Melee (M1) — 3-hit combo (requires unsheathed; auto-unsheath on first M1)
+	-- Melee (M1) — basic drawn-blade sword attack, 3-hit combo
 	MeleeRange = 8,
 	MeleeHitboxSize = Vector3.new(6, 5, 8),
 	MeleeCooldown = 0.32,
@@ -14,14 +14,14 @@ local Config = {
 	MeleeLungeSpeed = 28,
 	MeleeLungeDuration = 0.08,
 
-	-- Flash Step (key 1)
-	FlashStepDistance = 28,
-	FlashStepDuration = 0.12,
+	-- Flash Step (hotbar 1) — short controlled dash
+	FlashStepDistance = 11,
+	FlashStepDuration = 0.07,
 	FlashStepCooldown = 2,
 	FlashStepCost = 15,
-	FlashStepIFrames = 0.2,
+	FlashStepIFrames = 0.15,
 
-	-- Spirit Wave (key 2)
+	-- Spirit Wave (hotbar 2)
 	SpiritWaveSpeed = 70,
 	SpiritWaveDamage = 28,
 	SpiritWaveCooldown = 5,

@@ -1,10 +1,11 @@
--- Spirit Power bar ScreenGui (Health uses default Roblox bar).
+-- Spirit Power bar + control hints (abilities live on AbilityHotbar).
 
 local Players = game:GetService("Players")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local CombatTypes = require(ReplicatedStorage.Shared.CombatTypes)
 
 local SpiritUI = {}
 
@@ -22,8 +23,8 @@ function SpiritUI.start()
 	local frame = Instance.new("Frame")
 	frame.Name = "SpiritPowerFrame"
 	frame.AnchorPoint = Vector2.new(0.5, 1)
-	frame.Position = UDim2.new(0.5, 0, 1, -24)
-	frame.Size = UDim2.fromOffset(280, 28)
+	frame.Position = UDim2.new(0.5, 0, 1, -12)
+	frame.Size = UDim2.fromOffset(280, 24)
 	frame.BackgroundColor3 = Color3.fromRGB(20, 24, 36)
 	frame.BackgroundTransparency = 0.25
 	frame.BorderSizePixel = 0
@@ -80,7 +81,7 @@ function SpiritUI.start()
 	hints.Name = "Controls"
 	hints.AnchorPoint = Vector2.new(0, 0)
 	hints.Position = UDim2.fromOffset(16, 40)
-	hints.Size = UDim2.fromOffset(360, 72)
+	hints.Size = UDim2.fromOffset(380, 72)
 	hints.BackgroundTransparency = 1
 	hints.Font = Enum.Font.Gotham
 	hints.TextSize = 14
@@ -88,13 +89,13 @@ function SpiritUI.start()
 	hints.TextYAlignment = Enum.TextYAlignment.Top
 	hints.TextColor3 = Color3.fromRGB(210, 220, 235)
 	hints.TextStrokeTransparency = 0.55
-	hints.Text = "E — Sheath / Unsheath\nM1 — Spirit Slash (auto-unsheath)\n1 — Flash Step · 2 — Spirit Wave"
+	hints.Text = "E — Sheath / Unsheath blade\nM1 — Sword Attack (auto-unsheath)\nHotbar 1 — Flash Step · 2 — Spirit Wave"
 	hints.Parent = gui
 
 	local denyLabel = Instance.new("TextLabel")
 	denyLabel.Name = "DenyNotice"
 	denyLabel.AnchorPoint = Vector2.new(0.5, 1)
-	denyLabel.Position = UDim2.new(0.5, 0, 1, -60)
+	denyLabel.Position = UDim2.new(0.5, 0, 1, -148)
 	denyLabel.Size = UDim2.fromOffset(320, 22)
 	denyLabel.BackgroundTransparency = 1
 	denyLabel.Font = Enum.Font.GothamBold
@@ -130,7 +131,7 @@ function SpiritUI.start()
 	end)
 
 	Remotes.get("CombatFX").OnClientEvent:Connect(function(payload)
-		if typeof(payload) == "table" and payload.kind == "Deny" then
+		if typeof(payload) == "table" and payload.kind == CombatTypes.Fx.Deny then
 			showDeny(tostring(payload.reason or "Denied"))
 		end
 	end)

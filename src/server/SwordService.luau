@@ -1,4 +1,4 @@
--- Creates a welded spirit blade on spawn; toggles sheathed (back) / unsheathed (right hand).
+-- Obvious katana-style spirit blade: Model + Motor6D weld to back (sheathed) or right hand.
 
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
@@ -9,7 +9,8 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local SwordService = {}
 
-local BLADE_NAME = "SpiritBlade"
+local MODEL_NAME = "SpiritBlade"
+local ATTR_SHEATHED = "Sheathed"
 
 local function findTorso(character: Model): BasePart?
 	local upper = character:FindFirstChild("UpperTorso")
@@ -19,6 +20,10 @@ local function findTorso(character: Model): BasePart?
 	local torso = character:FindFirstChild("Torso")
 	if torso and torso:IsA("BasePart") then
 		return torso
+	end
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		return root
 	end
 	return nil
 end
@@ -35,103 +40,175 @@ local function findRightHand(character: Model): BasePart?
 	return nil
 end
 
-local function getOrCreateWeld(blade: BasePart): Weld
-	local existing = blade:FindFirstChild("BladeWeld")
-	if existing and existing:IsA("Weld") then
-		return existing
-	end
-	local weld = Instance.new("Weld")
-	weld.Name = "BladeWeld"
-	weld.Parent = blade
-	return weld
+local function makePart(props: {
+	name: string,
+	size: Vector3,
+	color: Color3,
+	material: Enum.Material,
+	parent: Instance,
+}): Part
+	local p = Instance.new("Part")
+	p.Name = props.name
+	p.Size = props.size
+	p.Color = props.color
+	p.Material = props.material
+	p.Transparency = 0 -- MUST be visible
+	p.Reflectance = 0.15
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.Anchored = false
+	p.CastShadow = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = props.parent
+	return p
 end
 
-local function sheathedOffset(): CFrame
-	-- On back, angled like a katana
-	return CFrame.new(0, 0.35, 0.85) * CFrame.Angles(0, 0, math.rad(25)) * CFrame.Angles(math.rad(90), 0, 0)
-end
-
-local function unsheathedOffset(hand: BasePart): CFrame
-	if hand.Name == "RightHand" then
-		return CFrame.new(0, -0.15, 0) * CFrame.Angles(math.rad(-90), 0, 0)
-	end
-	-- R6 Right Arm
-	return CFrame.new(0, -1.1, 0) * CFrame.Angles(math.rad(-90), 0, 0)
-end
-
-local function weldRelative(part0: BasePart, part1: BasePart, offset: CFrame)
-	part1.CFrame = part0.CFrame * offset
+local function weldConstraint(a: BasePart, b: BasePart)
 	local w = Instance.new("WeldConstraint")
-	w.Part0 = part0
-	w.Part1 = part1
-	w.Parent = part1
+	w.Part0 = a
+	w.Part1 = b
+	w.Parent = a
 end
 
-local function createBlade(character: Model): BasePart
-	local existing = character:FindFirstChild(BLADE_NAME)
-	if existing and existing:IsA("BasePart") then
+-- Build a chunky, unmistakable katana (handle + guard + blade + neon edge).
+local function buildKatanaModel(): Model
+	local model = Instance.new("Model")
+	model.Name = MODEL_NAME
+
+	-- Root / grip reference (slightly larger handle so it's obvious)
+	local handle = makePart({
+		name = "Handle",
+		size = Vector3.new(0.45, 1.35, 0.45),
+		color = Color3.fromRGB(28, 32, 48),
+		material = Enum.Material.SmoothPlastic,
+		parent = model,
+	})
+
+	local wrap = makePart({
+		name = "HandleWrap",
+		size = Vector3.new(0.5, 0.55, 0.5),
+		color = Color3.fromRGB(70, 90, 130),
+		material = Enum.Material.Fabric,
+		parent = model,
+	})
+	wrap.CFrame = handle.CFrame * CFrame.new(0, 0.15, 0)
+	weldConstraint(handle, wrap)
+
+	local pommel = makePart({
+		name = "Pommel",
+		size = Vector3.new(0.55, 0.35, 0.55),
+		color = Color3.fromRGB(180, 210, 255),
+		material = Enum.Material.Metal,
+		parent = model,
+	})
+	pommel.CFrame = handle.CFrame * CFrame.new(0, -0.75, 0)
+	weldConstraint(handle, pommel)
+
+	local guard = makePart({
+		name = "Guard",
+		size = Vector3.new(1.35, 0.22, 0.7),
+		color = Color3.fromRGB(200, 230, 255),
+		material = Enum.Material.Metal,
+		parent = model,
+	})
+	guard.CFrame = handle.CFrame * CFrame.new(0, 0.78, 0)
+	weldConstraint(handle, guard)
+
+	-- Main blade body (large, bright)
+	local blade = makePart({
+		name = "Blade",
+		size = Vector3.new(0.38, 4.6, 0.16),
+		color = Color3.fromRGB(140, 210, 255),
+		material = Enum.Material.Neon,
+		parent = model,
+	})
+	blade.CFrame = handle.CFrame * CFrame.new(0, 3.15, 0)
+	weldConstraint(handle, blade)
+
+	-- White neon cutting edge (extra obvious)
+	local edge = makePart({
+		name = "NeonEdge",
+		size = Vector3.new(0.12, 4.4, 0.08),
+		color = Color3.fromRGB(255, 255, 255),
+		material = Enum.Material.Neon,
+		parent = model,
+	})
+	edge.CFrame = blade.CFrame * CFrame.new(0.18, 0, 0)
+	weldConstraint(blade, edge)
+
+	-- Tip accent
+	local tip = makePart({
+		name = "Tip",
+		size = Vector3.new(0.32, 0.55, 0.14),
+		color = Color3.fromRGB(220, 245, 255),
+		material = Enum.Material.Neon,
+		parent = model,
+	})
+	tip.CFrame = blade.CFrame * CFrame.new(0, 2.4, 0)
+	weldConstraint(blade, tip)
+
+	-- Glow so it reads at distance
+	local light = Instance.new("PointLight")
+	light.Name = "BladeGlow"
+	light.Color = Color3.fromRGB(160, 220, 255)
+	light.Brightness = 2.2
+	light.Range = 10
+	light.Parent = blade
+
+	model.PrimaryPart = handle
+	CollectionService:AddTag(model, CombatTypes.Tags.SpiritBlade)
+	return model
+end
+
+local function getMotor(model: Model): Motor6D
+	local existing = model:FindFirstChild("BladeMotor")
+	if existing and existing:IsA("Motor6D") then
 		return existing
 	end
+	local motor = Instance.new("Motor6D")
+	motor.Name = "BladeMotor"
+	motor.Parent = model
+	return motor
+end
 
-	local blade = Instance.new("Part")
-	blade.Name = BLADE_NAME
-	blade.Size = Vector3.new(0.28, 4.2, 0.12)
-	blade.Material = Enum.Material.Neon
-	blade.Color = Color3.fromRGB(160, 230, 255)
-	blade.CanCollide = false
-	blade.CanQuery = false
-	blade.CanTouch = false
-	blade.Massless = true
-	blade.CastShadow = true
-	blade.Anchored = false
-	blade.Parent = character
+-- Sheathed: across the back, clearly sticking out behind torso
+local function sheathedC0(): CFrame
+	return CFrame.new(0, 0.55, 0.95)
+		* CFrame.Angles(0, math.rad(90), 0)
+		* CFrame.Angles(math.rad(-15), 0, math.rad(40))
+		* CFrame.new(0, -0.4, 0)
+end
 
-	local tip = Instance.new("Part")
-	tip.Name = "BladeEdge"
-	tip.Size = Vector3.new(0.14, 3.6, 0.06)
-	tip.Material = Enum.Material.Neon
-	tip.Color = Color3.fromRGB(255, 255, 255)
-	tip.CanCollide = false
-	tip.CanQuery = false
-	tip.CanTouch = false
-	tip.Massless = true
-	tip.Anchored = false
-	tip.Parent = character
-	weldRelative(blade, tip, CFrame.new())
+-- Unsheathed: blade extending forward/up from right hand — visible in front of character
+local function unsheathedC0(hand: BasePart): CFrame
+	if hand.Name == "RightHand" then
+		-- R15: grip in palm, blade out along fingers / forward
+		return CFrame.new(0, -0.1, 0)
+			* CFrame.Angles(math.rad(90), 0, 0)
+			* CFrame.Angles(0, math.rad(90), 0)
+			* CFrame.new(0, -0.9, 0)
+	end
+	-- R6 Right Arm: from lower arm outward
+	return CFrame.new(0, -1.0, 0)
+		* CFrame.Angles(math.rad(90), 0, 0)
+		* CFrame.Angles(0, math.rad(90), 0)
+		* CFrame.new(0, -0.9, 0)
+end
 
-	local handle = Instance.new("Part")
-	handle.Name = "Hilt"
-	handle.Size = Vector3.new(0.35, 0.7, 0.35)
-	handle.Material = Enum.Material.SmoothPlastic
-	handle.Color = Color3.fromRGB(40, 45, 60)
-	handle.CanCollide = false
-	handle.CanQuery = false
-	handle.CanTouch = false
-	handle.Massless = true
-	handle.Anchored = false
-	handle.Parent = character
-	weldRelative(blade, handle, CFrame.new(0, -2.0, 0))
-
-	local guard = Instance.new("Part")
-	guard.Name = "Guard"
-	guard.Size = Vector3.new(0.9, 0.12, 0.45)
-	guard.Material = Enum.Material.Metal
-	guard.Color = Color3.fromRGB(180, 220, 255)
-	guard.CanCollide = false
-	guard.CanQuery = false
-	guard.CanTouch = false
-	guard.Massless = true
-	guard.Anchored = false
-	guard.Parent = character
-	weldRelative(blade, guard, CFrame.new(0, -1.55, 0))
-
-	CollectionService:AddTag(blade, CombatTypes.Tags.SpiritBlade)
-	getOrCreateWeld(blade)
-	return blade
+local function assertVisible(model: Model)
+	for _, inst in model:GetDescendants() do
+		if inst:IsA("BasePart") then
+			inst.Transparency = 0
+			inst.LocalTransparencyModifier = 0
+		end
+	end
 end
 
 function SwordService.isSheathed(character: Model): boolean
-	local attr = character:GetAttribute("Sheathed")
+	local attr = character:GetAttribute(ATTR_SHEATHED)
 	if typeof(attr) == "boolean" then
 		return attr
 	end
@@ -139,33 +216,45 @@ function SwordService.isSheathed(character: Model): boolean
 end
 
 function SwordService.applySheathState(character: Model, sheathed: boolean)
-	local blade = character:FindFirstChild(BLADE_NAME)
-	if not blade or not blade:IsA("BasePart") then
-		blade = createBlade(character)
+	local model = character:FindFirstChild(MODEL_NAME)
+	if not model or not model:IsA("Model") then
+		model = buildKatanaModel()
+		model.Parent = character
+	end
+	assertVisible(model)
+
+	local handle = model.PrimaryPart or model:FindFirstChild("Handle")
+	if not handle or not handle:IsA("BasePart") then
+		warn("[SwordService] SpiritBlade missing Handle")
+		return
 	end
 
-	local weld = getOrCreateWeld(blade)
-	character:SetAttribute("Sheathed", sheathed)
+	local motor = getMotor(model)
+	motor.Part1 = handle
+	character:SetAttribute(ATTR_SHEATHED, sheathed)
 
 	if sheathed then
 		local torso = findTorso(character)
 		if not torso then
+			warn("[SwordService] No torso for sheath weld")
 			return
 		end
-		weld.Part0 = torso
-		weld.Part1 = blade
-		weld.C0 = sheathedOffset()
-		weld.C1 = CFrame.new()
+		motor.Part0 = torso
+		motor.C0 = sheathedC0()
+		motor.C1 = CFrame.new()
 	else
 		local hand = findRightHand(character)
 		if not hand then
+			warn("[SwordService] No right hand for unsheath weld")
 			return
 		end
-		weld.Part0 = hand
-		weld.Part1 = blade
-		weld.C0 = unsheathedOffset(hand)
-		weld.C1 = CFrame.new()
+		motor.Part0 = hand
+		motor.C0 = unsheathedC0(hand)
+		motor.C1 = CFrame.new()
 	end
+
+	-- Nudge assembly so clients see the attachment immediately
+	handle.AssemblyLinearVelocity = Vector3.zero
 end
 
 function SwordService.setSheathed(character: Model, sheathed: boolean)
@@ -191,12 +280,13 @@ function SwordService.ensureUnsheathed(character: Model)
 end
 
 local function onCharacter(character: Model)
-	task.defer(function()
+	task.spawn(function()
 		if not character.Parent then
 			return
 		end
-		character:WaitForChild("Humanoid", 5)
-		local deadline = os.clock() + 3
+		character:WaitForChild("Humanoid", 8)
+
+		local deadline = os.clock() + 5
 		while character.Parent and os.clock() < deadline do
 			if findTorso(character) and findRightHand(character) then
 				break
@@ -206,8 +296,26 @@ local function onCharacter(character: Model)
 		if not character.Parent then
 			return
 		end
-		createBlade(character)
+
+		-- Destroy any stale blade
+		local old = character:FindFirstChild(MODEL_NAME)
+		if old then
+			old:Destroy()
+		end
+
+		local model = buildKatanaModel()
+		model.Parent = character
+		assertVisible(model)
 		SwordService.applySheathState(character, true)
+
+		-- Sanity log for Studio Output
+		local parts = 0
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") and d.Transparency < 0.05 then
+				parts += 1
+			end
+		end
+		print(string.format("[SwordService] Equipped SpiritBlade on %s (%d visible parts, sheathed)", character.Name, parts))
 	end)
 end
 

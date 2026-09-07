@@ -3,8 +3,9 @@
 Bleach-inspired anime combat sandbox for Roblox — spirit reapers vs Voidspawn. Edit Luau here → Studio updates live via [Rojo](https://rojo.space).
 
 **Game name:** Spirit Blade  
-**Abilities:** Spirit Slash (M1), Flash Step (1), Spirit Wave (2)  
-**Sword:** Neon spirit blade — sheathed on back by default; **E** toggles sheath  
+**Sword:** Neon katana (handle + guard + blade) — sheathed on back by default; **E** toggles to right hand  
+**Melee:** Sword Attack (M1) — auto-unsheaths if needed  
+**Abilities (hotbar):** 1 Flash Step, 2 Spirit Wave, 3–9 locked  
 **Meter:** Spirit Power (regenerates; spent on Flash Step / Spirit Wave)
 
 ## Quick start every session
@@ -23,27 +24,28 @@ Press **Play**.
 Output should show:
 
 - `[Spirit Blade] Server combat systems online.`
-- `[Spirit Blade] Client ready. E sheath · M1 slash · 1 flash · 2 wave`
+- `[SwordService] Equipped SpiritBlade on <name> (N visible parts, sheathed)`
+- `[Spirit Blade] Client ready. E sheath · M1 sword · hotbar 1/2 abilities`
 
 ## Controls
 
 | Input | Action |
 |-------|--------|
 | **E** | Toggle sheath / unsheath spirit blade |
-| **Mouse1** / tap | Spirit Slash — auto-unsheaths on first swing; 3-hit combo |
-| **1** | Flash Step — short dash (costs Spirit Power, ~2s CD) |
-| **2** | Spirit Wave — ranged projectile (costs Spirit Power, ~5s CD) |
-| **3–9** | Reserved (no-op) |
+| **Mouse1** / tap | Sword Attack — auto-unsheaths; 3-hit melee combo |
+| **1** / hotbar slot 1 | Flash Step — short ~11-stud dash (MoveDirection-aimed) |
+| **2** / hotbar slot 2 | Spirit Wave — ranged projectile |
+| **3–9** | Locked hotbar slots (no-op for now) |
 
-Mobile: on-screen buttons for **1 Flash Step**, **2 Spirit Wave**, and **E Sheath**; tap to slash.
+Mobile: on-screen **E Sheath** button; tap hotbar slots for abilities; tap world to sword-attack.
 
 ## What you should see in Play
 
-1. Neon cyan/white **spirit blade** on your back (sheathed) — **E** moves it to your hand.
-2. Spirit Power bar at the bottom of the screen + control hints.
-3. 1–2 **Voidspawn** NPCs near spawn — they idle until you enter aggro range (~35 studs), chase inside that radius, and deaggro beyond ~50.
-4. Slash hitboxes, dash trails, and cyan Spirit Wave parts.
-5. PvP friendly fire on (sandbox) — players can damage each other with the same abilities.
+1. A **neon cyan/white katana** on your back at spawn — large handle, metal guard, glowing blade. **E** moves it into your right hand.
+2. Ability **hotbar** (9 slots) above the Spirit Power bar — slots 1–2 filled, 3–9 empty.
+3. 1–2 **Voidspawn** near spawn — idle until you enter aggro (~35 studs); deaggro beyond ~50.
+4. Slash VFX, short flash-step trails, cyan Spirit Wave parts.
+5. PvP friendly fire on (sandbox).
 6. Voidspawn respawn ~8s after death.
 
 ## Mac setup (once)
@@ -63,12 +65,12 @@ Mobile: on-screen buttons for **1 Flash Step**, **2 Spirit Wave**, and **E Sheat
 
 ### Key modules
 
-- `shared/Config.luau` — all tunables (`GameName`, damage, cooldowns, Spirit Power, Voidspawn aggro)
-- `shared/Remotes.luau` — creates `ReplicatedStorage.CombatRemotes`
-- `shared/CombatTypes.luau` — ability / FX ids
-- `server/SwordService.luau` — welded spirit blade + sheath toggle
-- `server/CombatService.luau` — server-authoritative melee, dash, projectile
-- `server/VoidspawnService.luau` — PvE spawn + aggro AI
+- `shared/Config.luau` — tunables (Flash Step distance, Voidspawn aggro, costs)
+- `shared/Remotes.luau` — `ReplicatedStorage.CombatRemotes`
+- `server/SwordService.luau` — Motor6D katana model + sheath toggle
+- `server/CombatService.luau` — sword melee, flash step, spirit wave
+- `server/VoidspawnService.luau` — PvE + aggro radii
+- `client/AbilityHotbar.luau` — 1–9 hotbar UI
 - `client/InputController.luau` / `SpiritUI.luau` / `CombatVFX.luau`
 
 Tune numbers in **one place**: `src/shared/Config.luau`.
