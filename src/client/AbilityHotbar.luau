@@ -55,10 +55,12 @@ local function activateSlot(index: number, pressed: boolean)
 	if def.id == "FlashStep" then
 		if pressed then
 			InputController.tryCancelSwingForFlashStep()
+			InputController.playLocalFlashPose()
 			Remotes.get("RequestFlashStep"):FireServer()
 		end
 	elseif def.id == "SpiritWave" then
 		if pressed then
+			InputController.playLocalCast()
 			Remotes.get("RequestSpiritWave"):FireServer()
 		end
 	elseif def.id == "SpiritGuard" then

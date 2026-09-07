@@ -13,16 +13,16 @@ local Config = {
 	MeleeComboReset = 1.0,
 	MeleeLungeSpeed = 10,
 	MeleeLungeDuration = 0.08,
-	MeleeHitDelay = 0.18, -- mid-late slash (~synced with Transform strike)
+	MeleeHitDelay = 0.22, -- mid-late slash (~synced with arm strike)
 	MeleeConeAngleDeg = 70, -- forward cone for magnet / forgiving hits
 	MeleeMagnetRange = 10, -- Voidspawn inside cone within this range still count
 	MeleeFinisherKnockback = 28, -- hit 3 knockback speed
 	MeleeFinisherStunSeconds = 0.65,
 
-	-- Swing timing (client Transform) — must stay coherent with MeleeHitDelay
-	SwingTotal = 0.40,
-	SwingWindupEnd = 0.10,
-	SwingStrikeEnd = 0.26,
+	-- Swing timing (client arm Transform) — must stay coherent with MeleeHitDelay
+	SwingTotal = 0.50,
+	SwingWindupEnd = 0.12,
+	SwingStrikeEnd = 0.32,
 
 	-- Sprint (LeftShift hold)
 	WalkSpeedDefault = 16,
@@ -42,7 +42,7 @@ local Config = {
 	FlashStepCooldown = 2,
 	FlashStepCost = 15,
 	FlashStepIFrames = 0.15,
-	FlashStepCancelSwingAfter = 0.22, -- cancel late-swing recovery if Flash Step after this elapsed
+	FlashStepCancelSwingAfter = 0.28, -- cancel late-swing recovery if Flash Step after this elapsed
 
 	-- Spirit Wave (hotbar 2)
 	SpiritWaveSpeed = 70,

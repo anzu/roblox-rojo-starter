@@ -10,7 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
-local SwingController = require(script.Parent.SwingController)
+local ArmAnimator = require(script.Parent.ArmAnimator)
 
 local InputController = {}
 
@@ -27,6 +27,10 @@ local function setGuard(on: boolean)
 		return
 	end
 	guarding = on
+	local character = Players.LocalPlayer.Character
+	if character then
+		ArmAnimator.setGuarding(character, on)
+	end
 	Remotes.get("RequestGuard"):FireServer(on)
 end
 
@@ -39,13 +43,13 @@ local function requestMelee()
 		localCombo = 0
 	end
 
-	-- Immediate local swing for responsiveness (server still owns damage/cooldown)
+	-- Immediate local arm-driven swing (server still owns damage/cooldown)
 	if t - lastLocalSwing >= Config.MeleeCooldown * 0.5 then
 		localCombo = (localCombo % Config.MeleeComboMax) + 1
 		lastLocalSwing = t
 		local character = Players.LocalPlayer.Character
 		if character then
-			SwingController.play(character, localCombo)
+			ArmAnimator.playSwing(character, localCombo)
 		end
 	end
 
@@ -59,8 +63,22 @@ end
 -- Called by AbilityHotbar before firing Flash Step — cancel late recovery for snappy combat
 function InputController.tryCancelSwingForFlashStep()
 	local character = Players.LocalPlayer.Character
-	if character and SwingController.isInLateRecovery(character) then
-		SwingController.cancel(character)
+	if character and ArmAnimator.isInLateRecovery(character) then
+		ArmAnimator.cancel(character)
+	end
+end
+
+function InputController.playLocalFlashPose()
+	local character = Players.LocalPlayer.Character
+	if character and not guarding then
+		ArmAnimator.playFlashPose(character)
+	end
+end
+
+function InputController.playLocalCast()
+	local character = Players.LocalPlayer.Character
+	if character and not guarding then
+		ArmAnimator.playCast(character)
 	end
 end
 
@@ -122,7 +140,7 @@ function InputController.start()
 	end)
 
 	Players.LocalPlayer.CharacterRemoving:Connect(function(character)
-		SwingController.cancel(character)
+		ArmAnimator.cancel(character)
 		if guarding then
 			setGuard(false)
 		end

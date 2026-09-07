@@ -1,5 +1,5 @@
--- Lightweight client VFX: Transform swing (via SwingController), flash-step, hits, guard.
--- Floating SlashFX part removed — blade trail is enough.
+-- Lightweight client VFX + arm-driven combat poses (via ArmAnimator).
+-- No floating SlashFX part — blade trail on the welded sword is enough.
 
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
@@ -9,7 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CombatTypes = require(ReplicatedStorage.Shared.CombatTypes)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
-local SwingController = require(script.Parent.SwingController)
+local ArmAnimator = require(script.Parent.ArmAnimator)
 
 local CombatVFX = {}
 
@@ -44,11 +44,12 @@ local function slashFX(payload: any)
 
 	if character then
 		if character == localPlayer.Character then
-			if not SwingController.isPlaying(character) then
-				SwingController.play(character, combo)
+			-- Local already started on input; only play if somehow missed
+			if not ArmAnimator.isPlaying(character) and not ArmAnimator.isGuarding(character) then
+				ArmAnimator.playSwing(character, combo)
 			end
 		else
-			SwingController.play(character, combo)
+			ArmAnimator.playSwing(character, combo)
 		end
 	end
 end
@@ -57,6 +58,7 @@ local function flashStepFX(payload: any)
 	local startPos: Vector3 = payload.position or Vector3.zero
 	local goal: Vector3 = payload.goal or startPos
 
+	-- Soft trail (not a floating slash)
 	local trail = Instance.new("Part")
 	trail.Name = "FlashStepTrail"
 	trail.Anchored = true
@@ -67,11 +69,11 @@ local function flashStepFX(payload: any)
 	trail.Color = Color3.fromRGB(180, 200, 230)
 	local mid = (startPos + goal) * 0.5
 	local dist = (goal - startPos).Magnitude
-	trail.Size = Vector3.new(1.0, 1.0, math.max(dist, 1))
+	trail.Size = Vector3.new(0.7, 0.7, math.max(dist, 1))
 	trail.CFrame = CFrame.lookAt(mid, goal)
-	trail.Transparency = 0.45
+	trail.Transparency = 0.55
 	trail.Parent = workspace
-	fadePart(trail, 0.28)
+	fadePart(trail, 0.22)
 
 	local ghost = Instance.new("Part")
 	ghost.Name = "FlashGhost"
@@ -79,13 +81,22 @@ local function flashStepFX(payload: any)
 	ghost.CanCollide = false
 	ghost.CanQuery = false
 	ghost.CanTouch = false
-	ghost.Size = Vector3.new(2, 5, 1)
+	ghost.Size = Vector3.new(1.6, 4.2, 0.8)
 	ghost.Material = Enum.Material.ForceField
 	ghost.Color = Color3.fromRGB(160, 190, 230)
 	ghost.CFrame = CFrame.new(startPos)
-	ghost.Transparency = 0.5
+	ghost.Transparency = 0.6
 	ghost.Parent = workspace
-	fadePart(ghost, 0.35)
+	fadePart(ghost, 0.28)
+
+	-- Replicate arm tuck pose for remote players (local already posed on input)
+	local character = characterFromUserId(payload.userId)
+	local localPlayer = Players.LocalPlayer
+	if character and character ~= localPlayer.Character then
+		ArmAnimator.playFlashPose(character)
+	elseif character == localPlayer.Character and not ArmAnimator.isPlaying(character) and not ArmAnimator.isGuarding(character) then
+		ArmAnimator.playFlashPose(character)
+	end
 end
 
 local function spiritWaveHint(payload: any)
@@ -99,11 +110,27 @@ local function spiritWaveHint(payload: any)
 	ring.CanTouch = false
 	ring.Material = Enum.Material.ForceField
 	ring.Color = Color3.fromRGB(120, 170, 220)
-	ring.Size = Vector3.new(0.4, 4, 4)
+	ring.Size = Vector3.new(0.3, 3.2, 3.2)
 	ring.CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(90))
-	ring.Transparency = 0.35
+	ring.Transparency = 0.45
 	ring.Parent = workspace
-	fadePart(ring, 0.3)
+	fadePart(ring, 0.25)
+
+	-- Replicate cast arm thrust
+	local character = characterFromUserId(payload.userId)
+	local localPlayer = Players.LocalPlayer
+	if not character and payload.userId == localPlayer.UserId then
+		character = localPlayer.Character
+	end
+	if character then
+		if character == localPlayer.Character then
+			if not ArmAnimator.isPlaying(character) and not ArmAnimator.isGuarding(character) then
+				ArmAnimator.playCast(character)
+			end
+		else
+			ArmAnimator.playCast(character)
+		end
+	end
 end
 
 local function hitFX(payload: any)
@@ -117,22 +144,29 @@ local function hitFX(payload: any)
 	spark.CanTouch = false
 	spark.Material = Enum.Material.SmoothPlastic
 	spark.Color = Color3.fromRGB(255, 230, 160)
-	spark.Size = Vector3.new(1.0, 1.0, 1.0)
+	spark.Size = Vector3.new(0.85, 0.85, 0.85)
 	spark.CFrame = CFrame.new(pos)
-	spark.Transparency = 0.2
+	spark.Transparency = 0.25
 	spark.Parent = workspace
-	fadePart(spark, 0.18)
+	fadePart(spark, 0.16)
 end
 
 local function guardFX(payload: any)
 	local pos: Vector3 = payload.position or Vector3.zero
+	local character = characterFromUserId(payload.userId)
+	local localPlayer = Players.LocalPlayer
+	if not character and payload.userId == localPlayer.UserId then
+		character = localPlayer.Character
+	end
+
 	if payload.active and not payload.position then
-		local character = Players.LocalPlayer.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if root and root:IsA("BasePart") then
 			pos = root.Position
 		end
 	end
+
+	-- Soft shield pulse (no floating slash)
 	local shield = Instance.new("Part")
 	shield.Name = "GuardFX"
 	shield.Shape = Enum.PartType.Ball
@@ -142,11 +176,17 @@ local function guardFX(payload: any)
 	shield.CanTouch = false
 	shield.Material = Enum.Material.ForceField
 	shield.Color = Color3.fromRGB(140, 220, 160)
-	shield.Size = Vector3.new(2.2, 2.2, 2.2)
+	shield.Size = Vector3.new(1.8, 1.8, 1.8)
 	shield.CFrame = CFrame.new(pos)
-	shield.Transparency = 0.35
+	shield.Transparency = 0.45
 	shield.Parent = workspace
-	fadePart(shield, 0.22)
+	fadePart(shield, 0.18)
+
+	-- Replicate guard arm pose for remotes only when active is an explicit boolean
+	-- (block-hit Guard sparks omit `active` and must not clear the pose)
+	if character and character ~= localPlayer.Character and typeof(payload.active) == "boolean" then
+		ArmAnimator.setGuarding(character, payload.active)
+	end
 end
 
 local function stunFX(payload: any)
@@ -160,11 +200,11 @@ local function stunFX(payload: any)
 	ring.CanTouch = false
 	ring.Material = Enum.Material.ForceField
 	ring.Color = Color3.fromRGB(255, 220, 100)
-	ring.Size = Vector3.new(0.3, 3.5, 3.5)
+	ring.Size = Vector3.new(0.25, 3.0, 3.0)
 	ring.CFrame = CFrame.new(pos + Vector3.new(0, 2.5, 0)) * CFrame.Angles(0, 0, math.rad(90))
-	ring.Transparency = 0.3
+	ring.Transparency = 0.35
 	ring.Parent = workspace
-	fadePart(ring, 0.4)
+	fadePart(ring, 0.35)
 end
 
 local function deathFX(payload: any)
@@ -208,11 +248,11 @@ local function denyFX(_payload: any)
 	pulse.CanTouch = false
 	pulse.Material = Enum.Material.SmoothPlastic
 	pulse.Color = Color3.fromRGB(255, 90, 90)
-	pulse.Size = Vector3.new(1.5, 1.5, 1.5)
+	pulse.Size = Vector3.new(1.3, 1.3, 1.3)
 	pulse.CFrame = CFrame.new(root.Position)
-	pulse.Transparency = 0.25
+	pulse.Transparency = 0.3
 	pulse.Parent = workspace
-	fadePart(pulse, 0.25)
+	fadePart(pulse, 0.22)
 end
 
 function CombatVFX.start()

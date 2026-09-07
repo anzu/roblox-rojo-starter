@@ -4,7 +4,7 @@ Bleach-inspired anime combat sandbox for Roblox — spirit reapers vs Voidspawn.
 
 **Game name:** Spirit Blade  
 **Sword:** Metal katana + dark saya (scabbard) — saya stays on your back; **E** draws/sheaths the blade into the right hand  
-**Melee (Zanjutsu):** Sword Attack (M1) — auto-unsheaths; fluid Motor6D.Transform 3-hit combo; hit 3 knocks back + briefly stuns Voidspawn  
+**Melee (Zanjutsu):** Sword Attack (M1) — auto-unsheaths; **arm-driven** Motor6D.Transform swing (sword welded to hand); hit 3 knocks back + briefly stuns Voidspawn  
 **Sprint:** **Shift** hold (WalkSpeed boost)  
 **Camera:** **Ctrl** toggles mouse-lock combat aim (+ subtle soft assist toward nearby Voidspawn)  
 **Abilities (hotbar):** 1 Flash Step, 2 Spirit Wave, 3 Spirit Guard (hold), 4–9 locked  
@@ -35,7 +35,7 @@ Output should show:
 | Input | Action |
 |-------|--------|
 | **E** | Toggle sheath / unsheath katana (saya stays on back) |
-| **Mouse1** / tap | Sword Attack — auto-unsheaths; 3-hit Zanjutsu combo with fluid Transform swing |
+| **Mouse1** / tap | Sword Attack — auto-unsheaths; 3-hit Zanjutsu combo (**arm moves, sword follows**) |
 | **Shift** (hold) | Sprint (WalkSpeed ~16→28) |
 | **Ctrl** | Toggle mouse-lock (LockCenter + face camera look; soft assist toward Voidspawn) |
 | **F** / **hotbar 3** (hold) | Spirit Guard — block frontal melee (chip damage; drains Spirit) |
@@ -48,7 +48,7 @@ Mobile: on-screen **E Sheath** button; tap/hold hotbar slots for abilities; tap 
 ## What you should see in Play
 
 1. A **dark saya on your back** at spawn. **E** draws a **metal katana** into your right hand — **no neon / lightsaber glow**.
-2. **M1** plays a fluid **~0.4s RightShoulder + RightElbow + blade Transform slash** (horizontal / diagonal / overhead) with a blade trail. Hits mid-late swing; forgiving wide hitbox + Voidspawn magnet cone (~10 studs).
+2. **M1** plays a fluid **~0.5s arm-chain Transform slash** (RightShoulder + RightElbow + RightWrist — **blade stays welded**, never self-animates). Horizontal / diagonal / overhead with a soft blade trail. Hits mid-late swing; forgiving wide hitbox + Voidspawn magnet cone (~10 studs).
 3. **Hit 3** knocks Voidspawn back and briefly stuns them.
 4. **Shift** sprints; **Ctrl** locks mouse to center and rotates you toward camera look (subtle soft yaw toward Voidspawn in front).
 5. **F** / hotbar **3** holds Spirit Guard — frontal Voidspawn melee chips instead of full damage.
@@ -70,11 +70,11 @@ Try, in order:
 1. **Walk + M1 while moving** — must not get stuck walking one direction after the swing.
 2. **Shift hold** — sprint faster; release returns to normal walk. Shift is **not** camera lock.
 3. **Ctrl** — toggle camera lock; face camera yaw; unlock restores free rotate.
-4. **M1×3** — fluid slash arcs (not jerky snap); hit 3 stuns/knocks Voidspawn.
+4. **M1×3** — **arm arc visible**, sword stuck to hand (not floating alone); hit 3 stuns/knocks Voidspawn.
 5. Fight Voidspawn — they stay on the ground at melee range, **do not pile on your head**.
-6. **F** hold / hotbar **3** — block frontal Voidspawn hits (chip + Spirit drain).
-7. **1** Flash Step during late swing — cancels recovery cleanly.
-8. **2** Spirit Wave; Spirit Power regen + small gain on melee hits.
+6. **F** hold / hotbar **3** — **guard arm pose** across body; block frontal Voidspawn hits (chip + Spirit drain).
+7. **1** Flash Step — brief arm tuck pose; during late swing cancels recovery cleanly.
+8. **2** Spirit Wave — cast arm thrust; Spirit Power regen + small gain on melee hits.
 
 ## Mac setup (once)
 
@@ -101,7 +101,8 @@ Try, in order:
 - `server/SpiritPowerService.luau` — Reiatsu regen / spend / gain-on-hit / guard drain
 - `server/VoidspawnService.luau` — PvE + standoff AI (no jump) + aggro/grace
 - `client/AbilityHotbar.luau` — 1–9 hotbar UI (Guard on 3)
-- `client/SwingController.luau` — fluid Motor6D.Transform windup→strike→recover; hard cancel cleanup
+- `client/ArmAnimator.luau` — arm-driven Transform (swing/cast/flash/guard); sword passive/welded; hard cancel cleanup
+- `client/SwingController.luau` — shim → ArmAnimator
 - `client/SprintController.luau` — LeftShift hold sprint
 - `client/CameraLock.luau` — LeftControl mouse-lock + soft assist
 - `client/InputController.luau` / `SpiritUI.luau` / `CombatVFX.luau`

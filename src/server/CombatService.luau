@@ -455,12 +455,18 @@ function CombatService.handleGuard(player: Player, on: boolean)
 			return
 		end
 		SpiritPowerService.setGuarding(player, true)
-		Remotes.get("CombatFX"):FireClient(player, {
+		Remotes.get("CombatFX"):FireAllClients({
 			kind = CombatTypes.Fx.Guard,
 			active = true,
+			userId = player.UserId,
 		})
 	else
 		SpiritPowerService.setGuarding(player, false)
+		Remotes.get("CombatFX"):FireAllClients({
+			kind = CombatTypes.Fx.Guard,
+			active = false,
+			userId = player.UserId,
+		})
 	end
 end
 
