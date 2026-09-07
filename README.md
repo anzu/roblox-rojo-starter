@@ -1,40 +1,53 @@
-# Family Roblox Starter (Rojo)
+# Spirit Blade (Rojo)
 
-Minimal Roblox place synced from this folder via [Rojo](https://rojo.space). Edit Luau here → Studio updates live.
+Bleach-inspired anime combat sandbox for Roblox — spirit reapers vs Voidspawn. Edit Luau here → Studio updates live via [Rojo](https://rojo.space).
 
-## Mac setup (once)
+**Game name:** Spirit Blade  
+**Abilities:** Spirit Slash (M1), Flash Step (Q), Spirit Wave (E)  
+**Meter:** Spirit Power (regenerates; spent on Flash Step / Spirit Wave)
 
-1. **Install Aftman** (pins Rojo for this repo):
-   ```bash
-   brew install aftman
-   ```
-   Or see https://github.com/LPGhatguy/aftman
-
-2. In this folder:
-   ```bash
-   aftman install
-   ```
-   That installs the Rojo version from `aftman.toml`.
-
-3. **Roblox Studio plugin:** In Studio → Plugins → Get Plugins → search **Rojo**, install the official one (or install from https://rojo.space/docs/installation).
-
-4. Open a **new Baseplate** (or any place) in Studio. File → Save to File is optional; Rojo owns the scripts.
-
-## Connect every session
+## Quick start every session
 
 ```bash
+git pull
 cd /path/to/roblox-rojo-starter
+aftman install   # once per machine / after tool bumps
 rojo serve
 ```
 
-In Studio: **Plugins → Rojo → Connect** (default `localhost:34872`).
+In Roblox Studio: **Plugins → Rojo → Connect** (default `localhost:34872`).
 
-Press **Play**. Output should show something like:
+Press **Play**.
 
-- `[Family Roblox Starter] Hello, server!`
-- `[Family Roblox Starter] Hello, <YourName>!`
+Output should show:
 
-Change `src/shared/Config.luau` → save → Rojo syncs → Play again to confirm.
+- `[Spirit Blade] Server combat systems online.`
+- `[Spirit Blade] Client ready. M1 slash · Q flash step · E spirit wave`
+
+## Controls
+
+| Input | Action |
+|-------|--------|
+| **Mouse1** / tap | Spirit Slash — 3-hit melee combo |
+| **Q** | Flash Step — short dash (costs Spirit Power, ~2s CD) |
+| **E** | Spirit Wave — ranged projectile (costs Spirit Power, ~5s CD) |
+
+Mobile: on-screen buttons for Flash Step / Spirit Wave; tap to slash.
+
+## What you should see in Play
+
+1. Spirit Power bar at the bottom of the screen + control hints.
+2. 1–2 **Voidspawn** NPCs near spawn — they walk toward you and melee.
+3. Slash hitboxes, dash trails, and cyan Spirit Wave parts.
+4. PvP friendly fire on (sandbox) — players can damage each other with the same abilities.
+5. Voidspawn respawn ~8s after death.
+
+## Mac setup (once)
+
+1. Install [Aftman](https://github.com/LPGhatguy/aftman): `brew install aftman`
+2. In this folder: `aftman install` (pins Rojo from `aftman.toml`)
+3. Studio plugin: Plugins → Get Plugins → **Rojo** (or https://rojo.space/docs/installation)
+4. Open a Baseplate (or any place). Rojo owns the scripts under `ReplicatedStorage.Shared`, `ServerScriptService.Server`, `StarterPlayerScripts.Client`.
 
 ## Layout
 
@@ -44,6 +57,17 @@ Change `src/shared/Config.luau` → save → Rojo syncs → Play again to confir
 | `src/server/` | `ServerScriptService.Server` |
 | `src/client/` | `StarterPlayer.StarterPlayerScripts.Client` |
 
+### Key modules
+
+- `shared/Config.luau` — all tunables (`GameName`, damage, cooldowns, Spirit Power, Voidspawn)
+- `shared/Remotes.luau` — creates `ReplicatedStorage.CombatRemotes`
+- `shared/CombatTypes.luau` — ability / FX ids
+- `server/CombatService.luau` — server-authoritative melee, dash, projectile
+- `server/VoidspawnService.luau` — PvE spawn + AI
+- `client/InputController.luau` / `SpiritUI.luau` / `CombatVFX.luau`
+
+Tune numbers in **one place**: `src/shared/Config.luau`.
+
 ## Repo
 
-https://github.com/anzu/roblox-rojo-starter (private)
+https://github.com/anzu/roblox-rojo-starter

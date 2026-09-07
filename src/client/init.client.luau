@@ -1,7 +1,18 @@
--- Client bootstrap. Prints once for each player when their scripts load.
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Hello = require(ReplicatedStorage.Shared.Hello)
-local Players = game:GetService("Players")
+-- Spirit Blade client bootstrap: UI, input, VFX.
 
-local player = Players.LocalPlayer
-print(Hello.greet(player and player.Name or "client"))
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Config = require(ReplicatedStorage.Shared.Config)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+
+-- Wait for server remotes
+Remotes.init()
+
+local SpiritUI = require(script.SpiritUI)
+local InputController = require(script.InputController)
+local CombatVFX = require(script.CombatVFX)
+
+SpiritUI.start()
+InputController.start()
+CombatVFX.start()
+
+print(string.format("[%s] Client ready. M1 slash · Q flash step · E spirit wave", Config.GameName))
