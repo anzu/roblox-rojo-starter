@@ -11,8 +11,9 @@ local Config = {
 	MeleeComboMax = 3,
 	MeleeDamage = { 10, 14, 22 },
 	MeleeComboReset = 0.9,
-	MeleeLungeSpeed = 28,
+	MeleeLungeSpeed = 12, -- soft nudge; swing anim carries the feel
 	MeleeLungeDuration = 0.08,
+	MeleeHitDelay = 0.12, -- hitbox fires mid-swing (~0.1–0.2s)
 
 	-- Flash Step (hotbar 1) — short controlled dash
 	FlashStepDistance = 11,
@@ -43,10 +44,12 @@ local Config = {
 	VoidspawnMeleeRange = 5.5,
 	VoidspawnAttackCooldown = 1.25,
 	VoidspawnRespawnDelay = 8,
-	VoidspawnSpawnRadius = 28,
+	VoidspawnSpawnRadius = 70,
 	VoidspawnThinkInterval = 0.25,
-	VoidspawnAggroRadius = 35,
-	VoidspawnDeaggroRadius = 50,
+	VoidspawnAggroRadius = 22,
+	VoidspawnDeaggroRadius = 35,
+	VoidspawnSpawnDelay = 4,
+	VoidspawnPlayerGraceSeconds = 6,
 
 	-- Misc
 	FriendlyFire = true,

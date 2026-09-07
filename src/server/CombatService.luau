@@ -115,13 +115,14 @@ function CombatService.handleMelee(player: Player)
 	local cf = lookCFrame(root)
 	local hitCenter = cf.Position + cf.LookVector * (Config.MeleeHitboxSize.Z * 0.5 + 1)
 
-	-- Brief lunge via AssemblyLinearVelocity (more reliable than LinearVelocity alone)
+	-- Soft lunge so swing animation reads (not a teleport-slide)
 	root.AssemblyLinearVelocity = Vector3.new(
 		cf.LookVector.X * Config.MeleeLungeSpeed,
 		root.AssemblyLinearVelocity.Y,
 		cf.LookVector.Z * Config.MeleeLungeSpeed
 	)
 
+	-- FX first so clients start the arm/sword swing immediately
 	Remotes.get("CombatFX"):FireAllClients({
 		kind = CombatTypes.Fx.Slash,
 		position = hitCenter,
@@ -130,27 +131,44 @@ function CombatService.handleMelee(player: Player)
 		userId = player.UserId,
 	})
 
-	local overlap = OverlapParams.new()
-	overlap.FilterType = Enum.RaycastFilterType.Exclude
-	overlap.FilterDescendantsInstances = { character }
+	local hitDelay = Config.MeleeHitDelay or 0.12
+	task.delay(hitDelay, function()
+		if not character.Parent then
+			return
+		end
+		local humNow = character:FindFirstChildOfClass("Humanoid")
+		if not humNow or humNow.Health <= 0 then
+			return
+		end
+		local rootNow = getRoot(character)
+		if not rootNow then
+			return
+		end
+		local cfNow = lookCFrame(rootNow)
+		local center = cfNow.Position + cfNow.LookVector * (Config.MeleeHitboxSize.Z * 0.5 + 1)
 
-	local parts = workspace:GetPartBoundsInBox(
-		CFrame.new(hitCenter) * (cf - cf.Position),
-		Config.MeleeHitboxSize,
-		overlap
-	)
+		local overlap = OverlapParams.new()
+		overlap.FilterType = Enum.RaycastFilterType.Exclude
+		overlap.FilterDescendantsInstances = { character }
 
-	local hitModels: { [Model]: boolean } = {}
-	for _, part in parts do
-		local model = part:FindFirstAncestorOfClass("Model")
-		if model and not hitModels[model] then
-			local hum = model:FindFirstChildOfClass("Humanoid")
-			if hum and hum.Health > 0 then
-				hitModels[model] = true
-				DamageService.apply(player, hum, damage, "Melee")
+		local parts = workspace:GetPartBoundsInBox(
+			CFrame.new(center) * (cfNow - cfNow.Position),
+			Config.MeleeHitboxSize,
+			overlap
+		)
+
+		local hitModels: { [Model]: boolean } = {}
+		for _, part in parts do
+			local model = part:FindFirstAncestorOfClass("Model")
+			if model and not hitModels[model] then
+				local hum = model:FindFirstChildOfClass("Humanoid")
+				if hum and hum.Health > 0 then
+					hitModels[model] = true
+					DamageService.apply(player, hum, damage, "Melee")
+				end
 			end
 		end
-	end
+	end)
 end
 
 local function dashDirection(humanoid: Humanoid, root: BasePart): Vector3

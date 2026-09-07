@@ -1,4 +1,5 @@
 -- Spawns Voidspawn NPCs near world spawn; aggro-radius AI + melee; respawn after death.
+-- Ignores players during spawn delay / per-character grace.
 
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
@@ -14,6 +15,25 @@ local DamageService = require(script.Parent.DamageService)
 local VoidspawnService = {}
 
 local active: { Model } = {}
+local playerGraceUntil: { [Player]: number } = {}
+local globalGraceUntil = 0
+
+local function now(): number
+	return os.clock()
+end
+
+local function grantPlayerGrace(player: Player)
+	local grace = Config.VoidspawnPlayerGraceSeconds or 6
+	playerGraceUntil[player] = now() + grace
+end
+
+local function isPlayerInGrace(player: Player): boolean
+	if now() < globalGraceUntil then
+		return true
+	end
+	local untilTime = playerGraceUntil[player]
+	return typeof(untilTime) == "number" and now() < untilTime
+end
 
 local function getSpawnOrigin(): Vector3
 	local spawnLocation = workspace:FindFirstChildOfClass("SpawnLocation")
@@ -70,7 +90,6 @@ local function createVoidspawnModel(position: Vector3): Model
 	head.Parent = model
 	weld(root, head)
 
-	-- Mask plate (void vibe)
 	local mask = Instance.new("Part")
 	mask.Name = "Mask"
 	mask.Size = Vector3.new(1.1, 0.9, 0.2)
@@ -151,21 +170,24 @@ local function createVoidspawnModel(position: Vector3): Model
 	return model
 end
 
+-- Nearest living player outside grace window.
 local function nearestPlayerRoot(fromPos: Vector3): (Player?, BasePart?, number)
 	local bestPlayer: Player? = nil
 	local bestRoot: BasePart? = nil
 	local bestDist = math.huge
 	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		if character then
-			local hum = character:FindFirstChildOfClass("Humanoid")
-			local root = character:FindFirstChild("HumanoidRootPart")
-			if hum and hum.Health > 0 and root and root:IsA("BasePart") then
-				local d = (root.Position - fromPos).Magnitude
-				if d < bestDist then
-					bestDist = d
-					bestPlayer = player
-					bestRoot = root
+		if not isPlayerInGrace(player) then
+			local character = player.Character
+			if character then
+				local hum = character:FindFirstChildOfClass("Humanoid")
+				local root = character:FindFirstChild("HumanoidRootPart")
+				if hum and hum.Health > 0 and root and root:IsA("BasePart") then
+					local d = (root.Position - fromPos).Magnitude
+					if d < bestDist then
+						bestDist = d
+						bestPlayer = player
+						bestRoot = root
+					end
 				end
 			end
 		end
@@ -189,13 +211,19 @@ local function runAI(model: Model)
 		while model.Parent and humanoid.Health > 0 do
 			local _, nearestRoot, nearestDist = nearestPlayerRoot(root.Position)
 
-			-- Acquire / keep / lose aggro
+			-- Drop aggro if target gone, dead, left radius, or entered grace
 			if aggroRoot then
 				if not aggroRoot.Parent then
 					aggroRoot = nil
 				else
-					local aggroHum = aggroRoot.Parent and aggroRoot.Parent:FindFirstChildOfClass("Humanoid")
+					local targetModel = aggroRoot.Parent
+					local aggroHum = targetModel and targetModel:FindFirstChildOfClass("Humanoid")
+					local aggroPlayer = if targetModel and targetModel:IsA("Model")
+						then Players:GetPlayerFromCharacter(targetModel)
+						else nil
 					if not aggroHum or aggroHum.Health <= 0 then
+						aggroRoot = nil
+					elseif aggroPlayer and isPlayerInGrace(aggroPlayer) then
 						aggroRoot = nil
 					else
 						local d = (aggroRoot.Position - root.Position).Magnitude
@@ -206,6 +234,7 @@ local function runAI(model: Model)
 				end
 			end
 
+			-- Acquire only when inside AggroRadius AND grace expired (nearestPlayerRoot already filters grace)
 			if not aggroRoot and nearestRoot and nearestDist <= Config.VoidspawnAggroRadius then
 				aggroRoot = nearestRoot
 			end
@@ -216,7 +245,7 @@ local function runAI(model: Model)
 				humanoid:MoveTo(aggroRoot.Position)
 
 				if dist <= Config.VoidspawnMeleeRange then
-					local t = os.clock()
+					local t = now()
 					if t - lastAttack >= Config.VoidspawnAttackCooldown then
 						lastAttack = t
 						local targetModel = aggroRoot.Parent
@@ -236,9 +265,8 @@ local function runAI(model: Model)
 					end
 				end
 			else
-				-- Idle: slower walk, tiny patrol or hold position
 				humanoid.WalkSpeed = Config.VoidspawnIdleWalkSpeed
-				local t = os.clock()
+				local t = now()
 				if t >= nextPatrolAt then
 					nextPatrolAt = t + (3 + math.random() * 4)
 					local offset = randomOffset(6)
@@ -278,8 +306,27 @@ function VoidspawnService.spawnOne()
 end
 
 function VoidspawnService.start()
+	local spawnDelay = Config.VoidspawnSpawnDelay or 4
+	local grace = Config.VoidspawnPlayerGraceSeconds or 6
+	globalGraceUntil = now() + math.max(spawnDelay, grace)
+
+	local function hookPlayer(player: Player)
+		grantPlayerGrace(player)
+		player.CharacterAdded:Connect(function()
+			grantPlayerGrace(player)
+		end)
+	end
+
+	Players.PlayerAdded:Connect(hookPlayer)
+	for _, player in Players:GetPlayers() do
+		hookPlayer(player)
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		playerGraceUntil[player] = nil
+	end)
+
 	task.defer(function()
-		task.wait(1)
+		task.wait(spawnDelay)
 		for _ = 1, Config.VoidspawnCount do
 			VoidspawnService.spawnOne()
 			task.wait(0.15)

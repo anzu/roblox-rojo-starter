@@ -89,7 +89,7 @@ function SpiritUI.start()
 	hints.TextYAlignment = Enum.TextYAlignment.Top
 	hints.TextColor3 = Color3.fromRGB(210, 220, 235)
 	hints.TextStrokeTransparency = 0.55
-	hints.Text = "E — Sheath / Unsheath blade\nM1 — Sword Attack (auto-unsheath)\nHotbar 1 — Flash Step · 2 — Spirit Wave"
+	hints.Text = "E — Draw / sheath katana (saya on back)\nM1 — Sword Attack (swing + auto-draw)\nHotbar 1 — Flash Step · 2 — Spirit Wave"
 	hints.Parent = gui
 
 	local denyLabel = Instance.new("TextLabel")
